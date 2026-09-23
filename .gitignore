@@ -1,0 +1,31 @@
+# Python bytecode e cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+
+# Ambientes virtuais
+venv/
+.venv/
+env/
+ENV/
+
+# Variáveis de ambiente com chaves de API secretas (NUNCA subir para o GitHub!)
+.env
+
+# Diretórios de uploads (mantém a pasta vazia via .gitkeep)
+uploads/*
+!uploads/.gitkeep
+
+# Arquivos e pastas do editor/sistema operacional
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# PDFs de aula ou materiais locais
+03 - Aula - Pratica de Engenharia (Agents).pdf
+PROJETO ADMINISTRATIVO - N2 - Etapa 1.pdf
+
+# Pasta duplicada local (se existir)
+projeto-nota-fiscal/
