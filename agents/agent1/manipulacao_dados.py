@@ -147,19 +147,19 @@ class Agent1:
         # Se houver chave configurada do Gemini, invoca o modelo de IA
         if self.client_ready:
             try:
-                dados_ia = self._chamar_gemini(texto)
+                dados_ia = self._chamar_gemini(texto, file_path=file_path)
                 if dados_ia and isinstance(dados_ia, dict):
                     return self._harmonizar_dados(dados_ia, dados_base)
             except Exception as e:
                 print(f"[Agent1] Falha na chamada ao Gemini, utilizando motor de contingência: {e}")
 
         # Se Gemini não estiver disponível ou falhar, utiliza classificação especialista por regras
-        classificacao = self._classificar_despesa_por_regras(
+        classificacao_dict = self._classificar_despesa_por_regras(
             dados_base.get("descricao_produtos", []),
             texto
         )
-        dados_base["tipo_despesa"] = classificacao["categoria"]
-        dados_base["classificacao_despesa"] = [classificacao]
+        dados_base["tipo_despesa"] = classificacao_dict["categoria"]
+        dados_base["classificacao_despesa"] = classificacao_dict["lista"]
         return dados_base
 
     # =========================================================================
@@ -234,14 +234,14 @@ class Agent1:
     # =========================================================================
     # INTEGRAÇÃO COM GOOGLE GEMINI (LLM)
     # =========================================================================
-    def _chamar_gemini(self, texto_nf: str) -> Optional[Dict[str, Any]]:
+    def _chamar_gemini(self, texto_nf: str, file_path: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """Invoca o modelo Google Gemini para extrair e classificar a Nota Fiscal."""
         import google.generativeai as genai
 
         prompt_sistema = f"""
 Você é um Agente Especialista em Engenharia de Software e Processamento de Documentos Fiscais.
-Sua missão é ler o texto extraído de uma Nota Fiscal (DANFE - Contas a Pagar) e gerar um JSON com:
-1. Extração exata dos campos obrigatórios.
+Sua missão é analisar uma Nota Fiscal (DANFE - Contas a Pagar) e gerar um JSON com:
+1. Extração exata dos campos obrigatórios (Fornecedor, Faturado, NF, Emissão, Produtos com quantidade e valores, Vencimento, Total).
 2. Classificação assertiva da DESPESA baseada estritamente nos produtos adquiridos.
 
 REGRAS DE CLASSIFICAÇÃO DE DESPESA (CATEGORIAS OBRIGATÓRIAS):
@@ -249,6 +249,7 @@ REGRAS DE CLASSIFICAÇÃO DE DESPESA (CATEGORIAS OBRIGATÓRIAS):
 
 Exemplos de classificação:
 - Compra de Óleo Diesel, Combustíveis, Graxa, Rolamentos, Parafusos -> Categoria: "MANUTENÇÃO E OPERAÇÃO"
+- Aquisição de Tratores, Colheitadeiras, Implementos, Veículos -> Categoria: "INVESTIMENTOS"
 - Compra de Tubos, Conexões, Material Hidráulico, Cimento -> Categoria: "INFRAESTRUTURA E UTILIDADES"
 - Sementes de Soja/Milho, Adubo, Fertilizante, Herbicida -> Categoria: "INSUMOS AGRÍCOLAS"
 - Frete de grãos, caminhão de transporte -> Categoria: "SERVIÇOS OPERACIONAIS"
@@ -268,7 +269,7 @@ FORMATO JSON OBRIGATÓRIO DE SAÍDA:
   "data_emissao": "DD/MM/AAAA",
   "descricao_produtos": [
     {{
-      "codigo": "código se houver",
+      "codigo": "código do produto",
       "descricao": "Nome/Descrição do produto",
       "quantidade": 1.0,
       "unidade": "UN",
@@ -286,7 +287,7 @@ FORMATO JSON OBRIGATÓRIO DE SAÍDA:
   ],
   "data_vencimento": "DD/MM/AAAA",
   "valor_total": 0.0,
-  "tipo_despesa": "NOME EXATO DA CATEGORIA PRINCIPAL (ex: MANUTENÇÃO E OPERAÇÃO)",
+  "tipo_despesa": "NOME EXATO DA CATEGORIA PRINCIPAL (ex: MANUTENÇÃO E OPERAÇÃO ou INVESTIMENTOS)",
   "classificacao_despesa": [
     {{
       "categoria": "NOME EXATO DA CATEGORIA",
@@ -299,7 +300,20 @@ FORMATO JSON OBRIGATÓRIO DE SAÍDA:
 Responda APENAS com o objeto JSON válido, sem comentários ou texto adicional.
 """
 
-        prompt_usuario = f"Aqui está o texto da Nota Fiscal:\n\n{texto_nf}"
+        # Prepara o conteúdo para o Gemini: multimodal (PDF) se o arquivo existir, ou texto
+        conteudo_requisicao = []
+        if file_path and os.path.exists(file_path):
+            try:
+                with open(file_path, "rb") as f:
+                    pdf_bytes = f.read()
+                conteudo_requisicao = [
+                    {"mime_type": "application/pdf", "data": pdf_bytes},
+                    "Por favor, analise cuidadosamente este documento fiscal eletrônico (DANFE em anexo), extraia todos os itens e gere o JSON estruturado de acordo com as instruções do sistema."
+                ]
+            except Exception as e:
+                conteudo_requisicao = [f"Aqui está o texto da Nota Fiscal:\n\n{texto_nf}"]
+        else:
+            conteudo_requisicao = [f"Aqui está o texto da Nota Fiscal:\n\n{texto_nf}"]
 
         # Modelos com fallback sequencial
         modelos = [
@@ -316,7 +330,7 @@ Responda APENAS com o objeto JSON válido, sem comentários ou texto adicional.
                     system_instruction=prompt_sistema,
                     generation_config={"response_mime_type": "application/json"}
                 )
-                response = model.generate_content(prompt_usuario)
+                response = model.generate_content(conteudo_requisicao)
                 texto_resposta = response.text.strip()
                 if texto_resposta.startswith("```json"):
                     texto_resposta = texto_resposta[7:]
@@ -441,48 +455,72 @@ Responda APENAS com o objeto JSON válido, sem comentários ou texto adicional.
         return dados
 
     def _extrair_produtos_do_texto(self, texto: str) -> List[Dict[str, Any]]:
-        """Extrai os produtos e serviços constantes no documento fiscal com precisão."""
+        """Extrai os produtos e serviços constantes no documento fiscal com precisão para múltiplos formatos de DANFE."""
         produtos = []
         linhas = texto.split("\n")
 
         for linha in linhas:
             linha_s = linha.strip()
-            # Verifica se é uma linha com valores fiscais da DANFE (ex: ... 19,00 0,00 ITEM)
-            partes = re.split(r"\s+\d{1,2},\d{2}\s+\d{1,2},\d{2}\s+", linha_s)
-            if len(partes) >= 2:
-                colunas_num = partes[0]
-                item_str = partes[-1].strip()
+            if not linha_s:
+                continue
 
-                # Tenta separar o código e a descrição
-                cod = ""
-                desc = item_str
-                match_code_desc = re.match(r"^([A-Za-z0-9/\-]+\d(?:/\d)?)\s*([A-ZÇÃÕÁÉÍÓÚ\s].+)$", item_str)
-                if match_code_desc:
-                    cod = match_code_desc.group(1).strip()
-                    desc = match_code_desc.group(2).strip()
+            # -----------------------------------------------------------------
+            # Formato B1 (DANFE Agrotech: Código+Descrição no início e colunas fiscais concatenadas)
+            # Exemplo: TRT001TRATOR COMPACTO 50CV 870191000005102UN 14.500,004.500,00...
+            # -----------------------------------------------------------------
+            m_agro = re.match(
+                r"^([A-Za-z0-9/\.\-]+?\d+)([A-ZÇÃÕÁÉÍÓÚ].+?)\s+(\d{8})(\d{3})(\d{4})([A-Za-z]{2})\s+(.+)$",
+                linha_s
+            )
+            if m_agro:
+                cod = m_agro.group(1).strip()
+                desc = m_agro.group(2).strip()
+                un = m_agro.group(6).strip().upper()
+                resto = m_agro.group(7).strip()
+                matched_agro = False
+                for q_len in [1, 2]:
+                    cand_q = resto[:q_len]
+                    if not cand_q.isdigit() or int(cand_q) == 0:
+                        continue
+                    q = float(cand_q)
+                    sobrou = resto[q_len:]
+                    moedas = list(re.finditer(r"([\d\.]+,\d{2})", sobrou))
+                    if len(moedas) >= 2:
+                        m1_val = float(moedas[0].group(1).replace(".", "").replace(",", "."))
+                        m2_val = float(moedas[1].group(1).replace(".", "").replace(",", "."))
+                        if abs((q * m1_val) - m2_val) < 0.1:
+                            produtos.append({
+                                "codigo": cod,
+                                "descricao": desc,
+                                "unidade": un,
+                                "quantidade": q,
+                                "valor_unitario": m1_val,
+                                "valor_total": m2_val
+                            })
+                            matched_agro = True
+                            break
+                if matched_agro:
+                    continue
 
-                # Tenta extrair unidade, quantidade e valores numéricos
-                un = "UN"
-                qtd = 1.0
-                v_unit = 0.0
-                v_total = 0.0
-
-                match_un = re.search(r"(UN|PC|CX|KG|LT|M|PAR)(\d+)", colunas_num)
-                if match_un:
-                    un = match_un.group(1)
-                    try:
-                        qtd = float(match_un.group(2))
-                    except ValueError:
-                        qtd = 1.0
-
-                # Pega valores decimais na linha
-                decimais = re.findall(r"\d+(?:[.,]\d+)?", colunas_num)
-                if decimais:
-                    try:
-                        v_total = float(decimais[-1].replace(",", "."))
-                        v_unit = float(decimais[-2].replace(",", ".")) if len(decimais) > 1 else v_total
-                    except ValueError:
-                        pass
+            # -----------------------------------------------------------------
+            # Formato B (Padrão: Código e Descrição no início da linha)
+            # Exemplo: TRT001 TRATOR COMPACTO 50CV 87019100 000 5102 UN 1 4.500,00 4.500,00 ...
+            # Exemplo 2: 33401 ESTOPA 530130000005102PC 1 6,28 6,28 ...
+            # -----------------------------------------------------------------
+            m_padrao = re.match(
+                r"^([A-Za-z0-9/\.\-]+)\s+(.+?)\s+(\d{8})\s*(\d{3})\s*(\d{4})\s*([A-Za-z]{2})\s+(\d+(?:[.,]\d+)?)\s+([\d\.]+,\d{2})\s+([\d\.]+,\d{2})",
+                linha_s
+            )
+            if m_padrao:
+                cod = m_padrao.group(1).strip()
+                desc = m_padrao.group(2).strip()
+                un = m_padrao.group(6).strip().upper()
+                try:
+                    qtd = float(m_padrao.group(7).replace(",", "."))
+                    v_unit = float(m_padrao.group(8).replace(".", "").replace(",", "."))
+                    v_total = float(m_padrao.group(9).replace(".", "").replace(",", "."))
+                except ValueError:
+                    qtd, v_unit, v_total = 1.0, 0.0, 0.0
 
                 produtos.append({
                     "codigo": cod,
@@ -492,19 +530,130 @@ Responda APENAS com o objeto JSON válido, sem comentários ou texto adicional.
                     "valor_unitario": v_unit,
                     "valor_total": v_total
                 })
-            else:
-                # Caso alternativo: busca por itens conhecidos
-                for termo in ["GRAXA", "ROLAMENTO", "BUCHA", "ANEL", "ESTOPA", "PANO", "LIMPADOR", "OLEO", "DIESEL"]:
-                    if termo in linha_s.upper() and not any(p["descricao"] == linha_s for p in produtos):
-                        produtos.append({
-                            "codigo": "",
-                            "descricao": linha_s,
-                            "unidade": "UN",
-                            "quantidade": 1.0,
-                            "valor_unitario": 0.0,
-                            "valor_total": 0.0
-                        })
+                continue
+
+            # -----------------------------------------------------------------
+            # Formato A (WebDANFe / eGestor invertido: NCM...UN... 19,00 0,00 CODIGO DESCRICAO)
+            # Exemplo: 340319000005102UN180,3180,3172,2813,730,00 19,00 0,00 CQM20246GRAXA DE POLIUREIA MP SD 400G
+            # -----------------------------------------------------------------
+            m_fim = re.search(r"(\d{1,2},\d{2})\s+(\d{1,2},\d{2})\s+([A-Za-z0-9/\.\-]+?)([A-ZÇÃÕÁÉÍÓÚ\s].*)$", linha_s)
+            if m_fim:
+                cod_cand = m_fim.group(3).strip()
+                desc_cand = m_fim.group(4).strip()
+
+                # Separa código de descrição colada (ex: CQM20246GRAXA -> CQM20246 + GRAXA)
+                m_sep = re.match(r"^([A-Za-z0-9/\-]+?\d+)([A-ZÇÃÕÁÉÍÓÚ\s].+)$", cod_cand + desc_cand)
+                if m_sep:
+                    cod = m_sep.group(1).strip()
+                    desc = m_sep.group(2).strip()
+                else:
+                    cod = cod_cand
+                    desc = desc_cand
+
+                parte_ini = linha_s[:m_fim.start()].strip()
+                un = "UN"
+                m_un = re.search(r"\d{8}\d{3}\d{4}([A-Za-z]{2})", parte_ini)
+                if m_un:
+                    un = m_un.group(1).upper()
+                    resto = parte_ini[m_un.end():].strip()
+                else:
+                    resto = parte_ini
+
+                qtd = 1.0
+                v_unit = 0.0
+                v_total = 0.0
+
+                # Decodifica valores colados (quantidade, unitário e total)
+                for q_len in [1, 2]:
+                    cand_q = resto[:q_len]
+                    if not cand_q.isdigit() or int(cand_q) == 0:
+                        continue
+                    q = float(cand_q)
+                    sobrou = resto[q_len:]
+                    v1_idx = sobrou.find(",")
+                    if v1_idx == -1:
+                        continue
+                    int_part = sobrou[:v1_idx].replace(".", "")
+                    matched = False
+                    for dec_len in range(2, 6):
+                        if len(sobrou) < v1_idx + 1 + dec_len:
+                            continue
+                        dec_part = sobrou[v1_idx + 1 : v1_idx + 1 + dec_len]
+                        if not dec_part.isdigit():
+                            continue
+                        try:
+                            u_val = float(int_part + "." + dec_part)
+                        except ValueError:
+                            continue
+                        exp_tot = round(q * u_val, 2)
+                        p1 = f"{exp_tot:.2f}".replace(".", ",")
+                        p_mil = f"{exp_tot:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".") if exp_tot >= 1000 else p1
+                        resto_apos = sobrou[v1_idx + 1 + dec_len:]
+                        if p1 in resto_apos or p_mil in resto_apos:
+                            qtd = q
+                            v_unit = round(u_val, 2)
+                            v_total = exp_tot
+                            matched = True
+                            break
+                    if matched:
                         break
+
+                # Fallback secundário para capturar moedas
+                if v_unit == 0.0:
+                    moedas = re.findall(r"\d+(?:\.\d+)?,\d{2}", resto)
+                    if moedas:
+                        try:
+                            v_unit = float(moedas[0].replace(".", "").replace(",", "."))
+                            v_total = float(moedas[1].replace(".", "").replace(",", ".")) if len(moedas) > 1 else v_unit
+                        except ValueError:
+                            pass
+
+                produtos.append({
+                    "codigo": cod,
+                    "descricao": desc,
+                    "unidade": un,
+                    "quantidade": qtd,
+                    "valor_unitario": v_unit,
+                    "valor_total": v_total
+                })
+                continue
+
+            # -----------------------------------------------------------------
+            # Formato C (Genérico por palavras-chave com captura de números)
+            # -----------------------------------------------------------------
+            for termo in [
+                "TRATOR", "COLHEITADEIRA", "PNEU", "GRAXA", "ROLAMENTO", "BUCHA",
+                "ANEL", "ESTOPA", "PANO", "LIMPADOR", "OLEO", "DIESEL", "FILTRO",
+                "CORREIA", "PARAFUSO", "SEMENTE", "ADUBO", "FERTILIZANTE"
+            ]:
+                if termo in linha_s.upper() and not any(p["descricao"] == linha_s for p in produtos):
+                    # Tenta extrair código inicial e valores decimais
+                    m_gen_cod = re.match(r"^([A-Za-z0-9\-]+)\s+(.+)$", linha_s)
+                    c_gen = m_gen_cod.group(1) if m_gen_cod else ""
+                    d_gen = m_gen_cod.group(2) if m_gen_cod else linha_s
+
+                    # Se d_gen tiver números fiscais no final, limpa
+                    d_gen = re.sub(r"\s+\d{8}.*$", "", d_gen).strip()
+
+                    moedas = re.findall(r"\d+(?:\.\d+)?,\d{2}", linha_s)
+                    u_gen = 0.0
+                    t_gen = 0.0
+                    if moedas:
+                        try:
+                            t_gen = float(moedas[-1].replace(".", "").replace(",", "."))
+                            u_gen = float(moedas[-2].replace(".", "").replace(",", ".")) if len(moedas) > 1 else t_gen
+                        except ValueError:
+                            pass
+
+                    produtos.append({
+                        "codigo": c_gen,
+                        "descricao": d_gen,
+                        "unidade": "UN",
+                        "quantidade": 1.0,
+                        "valor_unitario": u_gen,
+                        "valor_total": t_gen
+                    })
+                    break
 
         if not produtos:
             produtos = [
@@ -520,100 +669,126 @@ Responda APENAS com o objeto JSON válido, sem comentários ou texto adicional.
 
         return produtos
 
-    def _classificar_despesa_por_regras(self, produtos: List[Dict[str, Any]], texto: str) -> Dict[str, str]:
-        """Classifica a despesa de acordo com as 9 categorias exigidas na disciplina."""
-        texto_analise = " ".join([p.get("descricao", "") for p in produtos]) + " " + texto
+    def _classificar_despesa_por_regras(self, produtos: List[Dict[str, Any]], texto: str) -> Dict[str, Any]:
+        """Classifica a despesa de acordo com as 9 categorias exigidas na disciplina ESW424."""
+        texto_analise = " ".join([str(p.get("descricao", "")) for p in produtos]) + " " + texto
         texto_analise = texto_analise.upper()
 
-        # 1. MANUTENÇÃO E OPERAÇÃO
+        classificacoes = []
+
+        # 1. INVESTIMENTOS (Maior prioridade: Bens de Capital, Maquinários, Implementos e Veículos)
+        termos_invest = [
+            "TRATOR", "COLHEITADEIRA", "IMPLEMENTO", "PLANTADEIRA", "VEICULO",
+            "CAMINHONETE", "PULVERIZADOR AUTOPROPELIDO", "MAQUINA AGRICOLA",
+            "AQUISIÇÃO DE MÁQUINAS", "IMPLEMENTOS"
+        ]
+        if any(t in texto_analise for t in termos_invest):
+            classificacoes.append({
+                "categoria": "INVESTIMENTOS",
+                "subcategoria": "Aquisição de Máquinas e Implementos",
+                "justificativa": "Identificada aquisição de ativo fixo / bem de capital (tratores, colheitadeiras ou maquinário agrícola)."
+            })
+
+        # 2. MANUTENÇÃO E OPERAÇÃO (Peças, Lubrificantes, Combustíveis, Pneus, Componentes Mecânicos)
         termos_manutencao = [
-            "GRAXA", "ROLAMENTO", "BUCHA", "ANEL", "PARAFUSO", "PEÇA", "PECAS",
+            "GRAXA", "ROLAMENTO", "BUCHA", "ANEL", "PARAFUSO", "PEÇA", "PECAS", "PEÇAS",
             "OLEO", "LUBRIFICANTE", "DIESEL", "COMBUSTIVEL", "FILTRO", "CORREIA",
             "PNEU", "FERRAMENTA", "ESTOPA", "LIMPADOR", "SOLDA", "RETENTOR", "APOIO"
         ]
         if any(t in texto_analise for t in termos_manutencao):
-            return {
+            classificacoes.append({
                 "categoria": "MANUTENÇÃO E OPERAÇÃO",
                 "subcategoria": "Peças, Parafusos, Componentes Mecânicos e Lubrificantes",
-                "justificativa": "Os produtos identificados na Nota Fiscal (peças mecânicas, graxa, rolamentos, anéis e utilitários) destinam-se à manutenção e operação de máquinas agrícolas."
-            }
+                "justificativa": "Os produtos identificados destinam-se à manutenção, lubrificação e operação de veículos e maquinários agrícolas."
+            })
 
-        # 2. INSUMOS AGRÍCOLAS
-        termos_insumos = ["SEMENTE", "FERTILIZANTE", "ADUBO", "DEFENSIVO", "HERBICIDA", "FUNGICIDA", "INSETICIDA", "CALCARIO", "CORRETIVO"]
+        # 3. INSUMOS AGRÍCOLAS (Sementes, Fertilizantes, Defensivos, Corretivos)
+        termos_insumos = [
+            "SEMENTE", "FERTILIZANTE", "ADUBO", "DEFENSIVO", "HERBICIDA",
+            "FUNGICIDA", "INSETICIDA", "CALCARIO", "CORRETIVO"
+        ]
         if any(t in texto_analise for t in termos_insumos):
-            return {
+            classificacoes.append({
                 "categoria": "INSUMOS AGRÍCOLAS",
                 "subcategoria": "Sementes, Fertilizantes e Defensivos",
                 "justificativa": "Identificada aquisição de insumos destinados ao cultivo e nutrição vegetal."
-            }
+            })
 
-        # 3. INFRAESTRUTURA E UTILIDADES
-        termos_infra = ["ENERGIA", "ELETRICA", "HIDRAULICO", "TUBOS", "CONEXOES", "CIMENTO", "TIJOLO", "REFORMA", "CONSTRUCAO"]
+        # 4. INFRAESTRUTURA E UTILIDADES (Energia Elétrica, Construções, Materiais)
+        termos_infra = [
+            "ENERGIA", "ELETRICA", "HIDRAULICO", "TUBOS", "CONEXOES",
+            "CIMENTO", "TIJOLO", "REFORMA", "CONSTRUCAO", "ARRENDAMENTO"
+        ]
         if any(t in texto_analise for t in termos_infra):
-            return {
+            classificacoes.append({
                 "categoria": "INFRAESTRUTURA E UTILIDADES",
                 "subcategoria": "Materiais de Construção e Instalações",
-                "justificativa": "Identificada aquisição de materiais ou serviços para instalações, energia ou infraestrutura."
-            }
+                "justificativa": "Identificada aquisição de materiais ou serviços para instalações, energia ou infraestrutura rural."
+            })
 
-        # 4. SERVIÇOS OPERACIONAIS
-        termos_servicos = ["FRETE", "TRANSPORTE", "COLHEITA", "SECAGEM", "ARMAZENAGEM", "PULVERIZACAO"]
+        # 5. SERVIÇOS OPERACIONAIS (Frete, Colheita, Secagem, Armazenagem, Pulverização)
+        termos_servicos = [
+            "FRETE", "TRANSPORTE", "COLHEITA TERCEIRIZADA", "SECAGEM",
+            "ARMAZENAGEM", "PULVERIZACAO", "APLICACAO"
+        ]
         if any(t in texto_analise for t in termos_servicos):
-            return {
+            classificacoes.append({
                 "categoria": "SERVIÇOS OPERACIONAIS",
                 "subcategoria": "Frete e Serviços Operacionais Agrícolas",
-                "justificativa": "Identificada contratação de frete, colheita ou serviços operacionais."
-            }
+                "justificativa": "Identificada contratação de frete, colheita ou serviços operacionais especializados."
+            })
 
-        # 5. ADMINISTRATIVAS
-        termos_adm = ["HONORARIOS", "CONTABIL", "ADVOCATICIO", "AGRONOMICO", "TARIFA", "BANCARIA"]
+        # 6. ADMINISTRATIVAS (Honorários Contábeis, Jurídicos, Agronômicos, Tarifas)
+        termos_adm = [
+            "HONORARIOS", "CONTABIL", "ADVOCATICIO", "AGRONOMICO",
+            "TARIFA", "BANCARIA", "DESPESA FINANCEIRA"
+        ]
         if any(t in texto_analise for t in termos_adm):
-            return {
+            classificacoes.append({
                 "categoria": "ADMINISTRATIVAS",
                 "subcategoria": "Honorários e Serviços Administrativos",
-                "justificativa": "Identificada contratação de assessoria técnica, advocatícia, contábil ou financeira."
-            }
+                "justificativa": "Identificada contratação de assessoria técnica, advocatícia, contábil ou despesa administrativa."
+            })
 
-        # 6. SEGUROS E PROTEÇÃO
+        # 7. SEGUROS E PROTEÇÃO (Seguro Agrícola, Ativos, Prestamista)
         termos_seguros = ["SEGURO", "APOLICE", "SINISTRO", "PRESTAMISTA"]
         if any(t in texto_analise for t in termos_seguros):
-            return {
+            classificacoes.append({
                 "categoria": "SEGUROS E PROTEÇÃO",
                 "subcategoria": "Seguro Agrícola ou de Ativos",
-                "justificativa": "Despesa referente a contratação ou renovação de cobertura de seguros."
-            }
+                "justificativa": "Despesa referente a contratação ou renovação de apólice de seguros."
+            })
 
-        # 7. IMPOSTOS E TAXAS
+        # 8. IMPOSTOS E TAXAS (ITR, IPTU, IPVA, INCRA-CCIR)
         termos_impostos = ["ITR", "IPTU", "IPVA", "INCRA", "CCIR", "TAXA", "TRIBUTO"]
         if any(t in texto_analise for t in termos_impostos):
-            return {
+            classificacoes.append({
                 "categoria": "IMPOSTOS E TAXAS",
                 "subcategoria": "Tributos e Taxas Rurais/Urbanas",
                 "justificativa": "Pagamento de impostos, certidões ou taxas oficiais governamentais."
-            }
+            })
 
-        # 8. RECURSOS HUMANOS
-        termos_rh = ["FOLHA", "SALARIO", "ENCARGO", "DIARIA", "RESCISAO", "TEMPORARIO"]
+        # 9. RECURSOS HUMANOS (Salários, Diárias, Mão de Obra)
+        termos_rh = ["FOLHA", "SALARIO", "ENCARGO", "DIARIA", "RESCISAO", "TEMPORARIO", "MAO DE OBRA"]
         if any(t in texto_analise for t in termos_rh):
-            return {
+            classificacoes.append({
                 "categoria": "RECURSOS HUMANOS",
                 "subcategoria": "Salários, Diárias e Encargos",
                 "justificativa": "Despesa com mão de obra, contratação ou encargos trabalhistas."
-            }
+            })
 
-        # 9. INVESTIMENTOS
-        termos_invest = ["TRATOR", "COLHEITADEIRA", "VEICULO", "CAMINHONETE", "IMPLEMENTO", "IMOVEL", "TERRA"]
-        if any(t in texto_analise for t in termos_invest):
-            return {
-                "categoria": "INVESTIMENTOS",
-                "subcategoria": "Aquisição de Máquinas e Implementos",
-                "justificativa": "Identificada aquisição de ativo fixo / bem de capital."
-            }
+        if not classificacoes:
+            classificacoes.append({
+                "categoria": "MANUTENÇÃO E OPERAÇÃO",
+                "subcategoria": "Geral de Operações",
+                "justificativa": "Classificação padrão atribuída conforme contexto operacional da nota fiscal."
+            })
 
         return {
-            "categoria": "MANUTENÇÃO E OPERAÇÃO",
-            "subcategoria": "Geral de Operações",
-            "justificativa": "Classificação padrão atribuída conforme contexto operacional da nota fiscal."
+            "categoria": classificacoes[0]["categoria"],
+            "subcategoria": classificacoes[0]["subcategoria"],
+            "justificativa": classificacoes[0]["justificativa"],
+            "lista": classificacoes
         }
 
     def _harmonizar_dados(self, dados_ia: Dict[str, Any], dados_base: Dict[str, Any]) -> Dict[str, Any]:
