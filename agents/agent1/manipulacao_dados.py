@@ -388,25 +388,13 @@ FORMATO JSON OBRIGATÓRIO DE SAÍDA:
 Responda APENAS com o objeto JSON válido, sem comentários ou texto adicional.
 """
 
-        conteudo_requisicao = []
-        if file_path and os.path.exists(file_path):
-            try:
-                with open(file_path, "rb") as f:
-                    pdf_bytes = f.read()
-                conteudo_requisicao = [
-                    {"mime_type": "application/pdf", "data": pdf_bytes},
-                    "Por favor, analise cuidadosamente este documento fiscal eletrônico (DANFE em anexo), extraia todos os itens e gere o JSON estruturado de acordo com as instruções do sistema."
-                ]
-            except Exception:
-                conteudo_requisicao = [f"Aqui está o texto da Nota Fiscal:\n\n{texto_nf}"]
-        else:
-            conteudo_requisicao = [f"Aqui está o texto da Nota Fiscal:\n\n{texto_nf}"]
+        conteudo_requisicao = [
+            f"Analise o texto integral da DANFE a seguir, extraia com precisão cirúrgica os dados de cabeçalho e todos os produtos discriminados, e classifique a despesa de acordo com as regras:\n\n{texto_nf}"
+        ]
 
         modelos = [
-            "gemini-3.6-flash",
             "gemini-flash-latest",
             "gemini-3.8-flash",
-            "gemini-3.1-pro-preview",
             "gemini-pro-latest"
         ]
 
@@ -417,7 +405,10 @@ Responda APENAS com o objeto JSON válido, sem comentários ou texto adicional.
                     system_instruction=prompt_sistema,
                     generation_config={"response_mime_type": "application/json"}
                 )
-                response = model.generate_content(conteudo_requisicao)
+                response = model.generate_content(
+                    conteudo_requisicao,
+                    request_options={"timeout": 6.0}
+                )
                 texto_resposta = response.text.strip()
                 if texto_resposta.startswith("```json"):
                     texto_resposta = texto_resposta[7:]
