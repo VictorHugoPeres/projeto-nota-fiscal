@@ -5,6 +5,28 @@ Aplicação Web completa desenvolvida em Python, FastAPI e Agentes Inteligentes 
 
 ---
 
+### 🔗 Links do Projeto
+
+| | Link |
+|:---|:---|
+| 🌐 **Aplicação Online (Render)** | [https://projeto-nota-fiscal.onrender.com](https://projeto-nota-fiscal.onrender.com) |
+| 📦 **Repositório GitHub** | [https://github.com/VictorHugoPeres/projeto-nota-fiscal](https://github.com/VictorHugoPeres/projeto-nota-fiscal) |
+
+---
+
+### 🧪 Como Testar Online (Sem Instalar Nada)
+
+A aplicação está hospedada no Render e pode ser testada diretamente pelo navegador:
+
+1. **Acesse:** [https://projeto-nota-fiscal.onrender.com](https://projeto-nota-fiscal.onrender.com)
+2. **Clique em "Selecionar Nota Fiscal (PDF)"** e escolha uma DANFE em PDF
+3. **Clique em "Extrair Dados"** — o Agente irá processar o documento
+4. **Visualize o JSON** com os dados extraídos e a classificação de despesa
+
+> ⚠️ **Nota:** O servidor no Render utiliza o plano gratuito e pode demorar **até 30 segundos** para acordar na primeira requisição caso esteja inativo. Aguarde e tente novamente se isso ocorrer.
+
+---
+
 ### 📋 Atendimento Rigoroso aos Critérios de Avaliação (100%)
 
 | Critério | Peso | Status | Detalhamento |
