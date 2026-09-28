@@ -394,8 +394,7 @@ Responda APENAS com o objeto JSON válido, sem comentários ou texto adicional.
 
         modelos = [
             "gemini-flash-latest",
-            "gemini-3.8-flash",
-            "gemini-pro-latest"
+            "gemini-3.8-flash"
         ]
 
         for nome_modelo in modelos:
@@ -407,7 +406,7 @@ Responda APENAS com o objeto JSON válido, sem comentários ou texto adicional.
                 )
                 response = model.generate_content(
                     conteudo_requisicao,
-                    request_options={"timeout": 6.0}
+                    request_options={"timeout": 35.0}
                 )
                 texto_resposta = response.text.strip()
                 if texto_resposta.startswith("```json"):
