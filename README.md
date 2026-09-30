@@ -11,6 +11,7 @@ Aplicação Web completa desenvolvida em Python, FastAPI e Agentes Inteligentes 
 |:---|:---|
 | 🌐 **Aplicação Online (Render)** | [https://projeto-nota-fiscal.onrender.com](https://projeto-nota-fiscal.onrender.com) |
 | 📦 **Repositório GitHub** | [https://github.com/VictorHugoPeres/projeto-nota-fiscal](https://github.com/VictorHugoPeres/projeto-nota-fiscal) |
+| 🎥 **Vídeo de Demonstração (YouTube)** | [https://youtu.be/ALScWWn-pBQ](https://youtu.be/ALScWWn-pBQ) |
 
 ---
 
