@@ -29,3 +29,7 @@ PROJETO ADMINISTRATIVO - N2 - Etapa 1.pdf
 
 # Pasta duplicada local (se existir)
 projeto-nota-fiscal/
+
+# Banco de dados local SQLite
+*.db
+financeiro.db

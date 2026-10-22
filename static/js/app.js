@@ -184,6 +184,9 @@ document.addEventListener('DOMContentLoaded', () => {
             resultsCard.style.display = 'block';
             resultsCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
+            // Dispara automaticamente a Atividade da 2ª Etapa (Análise no Banco de Dados)
+            executarAnaliseEtapa2(currentExtractedData);
+
             showToast('Nota fiscal extraída e classificada com sucesso!');
 
         } catch (error) {
@@ -382,5 +385,133 @@ document.addEventListener('DOMContentLoaded', () => {
         toastTimeout = setTimeout(() => {
             toast.classList.remove('show');
         }, 3200);
+    }
+
+    // =========================================================================
+    // 8. ATIVIDADE DA 2ª ETAPA: ANÁLISE NO BANCO E LANÇAMENTO (Páginas 1 e 2)
+    // =========================================================================
+    const etapa2Section = document.getElementById('etapa2Section');
+    const analiseFornNome = document.getElementById('analiseFornNome');
+    const analiseFornDoc = document.getElementById('analiseFornDoc');
+    const analiseFornStatusBadge = document.getElementById('analiseFornStatusBadge');
+
+    const analiseFatNome = document.getElementById('analiseFatNome');
+    const analiseFatDoc = document.getElementById('analiseFatDoc');
+    const analiseFatStatusBadge = document.getElementById('analiseFatStatusBadge');
+
+    const analiseDespDesc = document.getElementById('analiseDespDesc');
+    const analiseDespStatusBadge = document.getElementById('analiseDespStatusBadge');
+
+    const btnLancarBD = document.getElementById('btnLancarBD');
+    const boxLancamentoSucesso = document.getElementById('boxLancamentoSucesso');
+    const detalhesLancamentoTexto = document.getElementById('detalhesLancamentoTexto');
+
+    async function executarAnaliseEtapa2(data) {
+        if (!etapa2Section) return;
+
+        try {
+            const res = await fetch('/api/analisar-entidades', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+
+            if (!res.ok) throw new Error('Falha ao consultar entidades no banco');
+
+            const resposta = await res.json();
+            const analise = resposta.analise;
+
+            // 1. Fornecedor
+            analiseFornNome.textContent = analise.fornecedor.nome;
+            analiseFornDoc.textContent = `CNPJ: ${analise.fornecedor.documento}`;
+            if (analise.fornecedor.existe) {
+                analiseFornStatusBadge.innerHTML = `<span class="analise-status-pill status-existe">EXISTE – ID: ${analise.fornecedor.id}</span>`;
+            } else {
+                analiseFornStatusBadge.innerHTML = `<span class="analise-status-pill status-nao-existe">NÃO EXISTE</span>`;
+            }
+
+            // 2. Faturado
+            analiseFatNome.textContent = analise.faturado.nome;
+            analiseFatDoc.textContent = `CPF: ${analise.faturado.documento}`;
+            if (analise.faturado.existe) {
+                analiseFatStatusBadge.innerHTML = `<span class="analise-status-pill status-existe">EXISTE – ID: ${analise.faturado.id}</span>`;
+            } else {
+                analiseFatStatusBadge.innerHTML = `<span class="analise-status-pill status-nao-existe">NÃO EXISTE</span>`;
+            }
+
+            // 3. Despesa
+            analiseDespDesc.textContent = analise.despesa.descricao;
+            if (analise.despesa.existe) {
+                analiseDespStatusBadge.innerHTML = `<span class="analise-status-pill status-existe">EXISTE – ID: ${analise.despesa.id}</span>`;
+            } else {
+                analiseDespStatusBadge.innerHTML = `<span class="analise-status-pill status-nao-existe">NÃO EXISTE</span>`;
+            }
+
+            // Mostra a seção da 2ª Etapa
+            etapa2Section.style.display = 'block';
+            if (boxLancamentoSucesso) boxLancamentoSucesso.style.display = 'none';
+
+        } catch (err) {
+            console.error('Erro na análise da Etapa 2:', err);
+        }
+    }
+
+    if (btnLancarBD) {
+        btnLancarBD.addEventListener('click', async () => {
+            if (!currentExtractedData) {
+                showToast('Nenhum dado de nota fiscal carregado.');
+                return;
+            }
+
+            btnLancarBD.disabled = true;
+            btnLancarBD.innerHTML = 'LANÇANDO NO BANCO...';
+
+            try {
+                const res = await fetch('/api/lancar-movimento', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(currentExtractedData)
+                });
+
+                if (!res.ok) {
+                    const errData = await res.json();
+                    throw new Error(errData.detail || 'Falha ao lançar movimento no banco');
+                }
+
+                const lancamento = await res.json();
+
+                if (boxLancamentoSucesso) {
+                    boxLancamentoSucesso.style.display = 'block';
+                    const mov = lancamento.detalhes;
+                    detalhesLancamentoTexto.innerHTML = `
+                        <strong>Lançamento realizado com sucesso!</strong><br>
+                        &bull; Movimento <strong>#${mov.movimento_id}</strong> (Tipo: <strong>${mov.tipo_movimento}</strong>)<br>
+                        &bull; Fornecedor: <strong>${mov.fornecedor.nome}</strong> (ID: #${mov.fornecedor.id})<br>
+                        &bull; Faturado: <strong>${mov.faturado.nome}</strong> (ID: #${mov.faturado.id})<br>
+                        &bull; Classificação: <strong>${mov.despesa.descricao}</strong> (ID: #${mov.despesa.id})<br>
+                        &bull; Parcelas Geradas: <strong>${mov.parcelas.join(', ')}</strong><br>
+                        &bull; Valor Total: <strong>R$ ${Number(mov.valor_total).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong>
+                    `;
+                    boxLancamentoSucesso.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
+
+                showToast('5. REGISTRO FOI LANÇADO COM SUCESSO!');
+
+                // Atualiza o diagnóstico para mostrar as entidades agora existentes
+                await executarAnaliseEtapa2(currentExtractedData);
+
+            } catch (err) {
+                console.error('Erro ao lançar movimento:', err);
+                showToast('Erro: ' + err.message);
+            } finally {
+                btnLancarBD.disabled = false;
+                btnLancarBD.innerHTML = `
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    LANÇAR NO BANCO DE DADOS
+                `;
+            }
+        });
     }
 });

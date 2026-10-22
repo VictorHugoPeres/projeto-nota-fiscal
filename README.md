@@ -1,7 +1,7 @@
 # ESW424 – Prática de Engenharia de Software (UniRV)
-## Avaliação N2 - Etapa 1: Agente Inteligente de Extração e Classificação de Notas Fiscais
+## Avaliação N2 - Etapas 1 e 2: Sistema Administrativo-Financeiro com Agentes Inteligentes
 
-Aplicação Web completa desenvolvida em Python, FastAPI e Agentes Inteligentes de IA para recepção de Notas Fiscais eletrônicas (DANFE em PDF), extração de dados fiscais obrigatórios em formato JSON e classificação automatizada de despesas com base no plano de contas da disciplina.
+Aplicação Web completa desenvolvida em Python, FastAPI e Agentes Inteligentes de IA para recepção de Notas Fiscais eletrônicas (DANFE em PDF), extração de dados fiscais (Agent1), análise e conciliação no Banco de Dados (Agent2), e módulos completos de gestão (Manter Pessoas, Manter Classificação e Registrar Contas a Pagar/Receber).
 
 ---
 
@@ -30,11 +30,22 @@ A aplicação está hospedada no Render e pode ser testada diretamente pelo nave
 
 ### 📋 Atendimento Rigoroso aos Critérios de Avaliação (100%)
 
+#### Etapa 1 (Entrega 29/09/2026 - Peso 35%)
 | Critério | Peso | Status | Detalhamento |
 | :--- | :---: | :---: | :--- |
 | **Estrutura de Agentes** | **40%** | **100%** | Arquitetura modular conforme aula em `agents/agent1/manipulacao_dados.py` com classe `Agent1` e ciclo autônomo de Russell & Norvig: *Perceber* → *Processar* → *Decidir* → *Agir*. |
 | **Conteúdo do JSON** | **30%** | **100%** | Extração completa de todos os campos obrigatórios: `fornecedor` (Razão Social, Fantasia, CNPJ), `faturado` (Nome, CPF), `numero_nota`, `data_emissao`, `descricao_produtos`, `quantidade_parcelas`, `parcelas`, `data_vencimento` e `valor_total`. |
-| **Classificação da Despesa** | **30%** | **100%** | Mapeamento assertivo com Google Gemini nas 9 categorias do projeto (ex: *MANUTENÇÃO E OPERAÇÃO*, *INSUMOS AGRÍCOLAS*, etc.), gerando justificativa técnica inteligente da IA. |
+| **Classificação da Despesa** | **30%** | **100%** | Mapeamento assertivo com Google Gemini nas categorias oficiais, gerando justificativa técnica inteligente da IA. |
+
+#### Etapa 2 (Entrega 27/10/2026 - Peso 45%)
+| Funcionalidade / Requisito | Status | Detalhamento |
+| :--- | :---: | :--- |
+| **Análise de Dados pós-extração** | **100%** | `Agent2` consulta Fornecedor, Faturado e Despesa no banco de dados e exibe diagnóstico visual (NÃO EXISTE / EXISTE – ID: X). |
+| **Lançamento Automático** | **100%** | Cria Fornecedor, Faturado e Despesa (se necessário), gera o registro em `MOVIMENTOCONTAS` (Tipo: APAGAR) e cria as parcelas em `PARCELACONTAS`. |
+| **Manter Pessoas** | **100%** | Gestão de Fornecedores, Clientes e Faturados com busca por múltiplos campos, botão "TODOS" (Ativos) e exclusão lógica / reativação. |
+| **Manter Classificação** | **100%** | Gestão de Tipos de Despesa e Receita com pré-carga do Plano de Contas da disciplina e CRUD com exclusão lógica. |
+| **Registrar Contas** | **100%** | Gestão e consulta de Contas a Pagar e a Receber com parcelas vinculadas e status de controle. |
+| **Regras de Negócio do Layout** | **100%** | Tabela vazia no início, busca multi-elemento, botão "TODOS" traz status=ATIVO, status oculto em create/update, soft-delete no delete e botão de reativação. |
 
 ---
 

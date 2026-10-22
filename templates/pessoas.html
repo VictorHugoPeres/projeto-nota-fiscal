@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manter Pessoas | ESW424 UniRV</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Navegação Superior -->
+        {% include "nav_header.html" %}
+
+        <div class="crud-container">
+            <div class="crud-header">
+                <div>
+                    <h2 class="card-title">Manter Pessoas</h2>
+                    <p class="card-description">Gestão de Fornecedores, Clientes e Faturados (Etapa 2)</p>
+                </div>
+                <button type="button" class="btn-novo" id="btnNovoPessoa">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
+                    Inserir Nova Pessoa
+                </button>
+            </div>
+
+            <!-- Barra de Busca conforme recomendação de layout -->
+            <div class="search-bar-row">
+                <input type="text" id="inputBusca" class="input-search" placeholder="Buscar por razão social, nome, CPF/CNPJ...">
+                <button type="button" class="btn-buscar" id="btnBuscar">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+                    Buscar
+                </button>
+                <button type="button" class="btn-todos" id="btnTodos">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="8" y1="6" x2="21" y2="6"></line>
+                        <line x1="8" y1="12" x2="21" y2="12"></line>
+                        <line x1="8" y1="18" x2="21" y2="18"></line>
+                        <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                        <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                        <line x1="3" y1="18" x2="3.01" y2="18"></line>
+                    </svg>
+                    Todos (Ativos)
+                </button>
+
+                <label style="font-size: 0.85rem; color: #64748b; margin-left: auto; display: flex; align-items: center; gap: 0.35rem; cursor: pointer;">
+                    <input type="checkbox" id="checkInativos"> Exibir Inativos
+                </label>
+            </div>
+
+            <!-- Tabela de Registros (Inicia Vazia conforme Regra a) -->
+            <div class="table-wrapper">
+                <table class="crud-table">
+                    <thead>
+                        <tr>
+                            <th># ID</th>
+                            <th>Tipo</th>
+                            <th>Razão Social / Nome</th>
+                            <th>CPF / CNPJ</th>
+                            <th>Status</th>
+                            <th style="width: 140px;">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabelaPessoasCorpo">
+                        <tr>
+                            <td colspan="6" style="text-align: center; padding: 2.5rem; color: #94a3b8;">
+                                Digite um termo de busca ou clique no botão <strong>Todos</strong> para listar os registros.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Modal de Cadastro / Edição -->
+        <div class="modal-overlay" id="modalPessoa" style="display: none;">
+            <div class="modal-box">
+                <div class="modal-header">
+                    <h3 class="card-title modal-title">Nova Pessoa</h3>
+                </div>
+                <form id="formPessoa">
+                    <input type="hidden" name="id">
+                    <!-- Status oculto no create/update conforme regras g e h -->
+                    <input type="hidden" name="status" value="ATIVO">
+
+                    <div class="form-group">
+                        <label>Tipo de Pessoa *</label>
+                        <select name="tipo" class="form-control" required>
+                            <option value="CLIENTE-FORNECEDOR">CLIENTE-FORNECEDOR</option>
+                            <option value="FORNECEDOR">FORNECEDOR</option>
+                            <option value="CLIENTE">CLIENTE</option>
+                            <option value="FATURADO">FATURADO</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Razão Social / Nome *</label>
+                        <input type="text" name="razao_social" class="form-control" required placeholder="Ex: IGUAÇU MÁQUINAS LTDA">
+                    </div>
+
+                    <div class="form-group">
+                        <label>CPF ou CNPJ</label>
+                        <input type="text" name="cpf_cnpj" class="form-control" placeholder="Ex: 11.111.111/0001-00">
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn-cancelar">Cancelar</button>
+                        <button type="submit" class="btn-salvar">Salvar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <footer class="app-footer" style="margin-top: 2rem;">
+            <p>Universidade de Rio Verde (UniRV) • ESW424 Prática de Engenharia de Software</p>
+            <p class="footer-sub">Avaliação N2 - Etapa 2: Módulo Manter Pessoas</p>
+        </footer>
+    </div>
+
+    <script src="/static/js/crud.js"></script>
+    <script>
+        const crudPessoas = new CrudManager({
+            endpoint: '/api/pessoas',
+            tableBodyId: 'tabelaPessoasCorpo',
+            searchInputId: 'inputBusca',
+            btnBuscarId: 'btnBuscar',
+            btnTodosId: 'btnTodos',
+            btnNovoId: 'btnNovoPessoa',
+            modalId: 'modalPessoa',
+            formId: 'formPessoa',
+            filterInativosCheckboxId: 'checkInativos',
+            renderRow: (p) => `
+                <tr>
+                    <td class="code-font" style="font-weight: 700;">#${p.id}</td>
+                    <td><span style="font-weight: 600; font-size: 0.8rem; background: #f1f5f9; padding: 0.2rem 0.5rem; border-radius: 4px;">${p.tipo}</span></td>
+                    <td style="font-weight: 600;">${p.razao_social}</td>
+                    <td class="code-font">${p.cpf_cnpj || '-'}</td>
+                    <td>
+                        <span class="badge-status-${p.status.toLowerCase()}">${p.status}</span>
+                    </td>
+                    <td class="actions-cell">
+                        <button type="button" class="btn-action btn-edit" onclick="crudPessoas.abrirModalEditar(${p.id})">Editar</button>
+                        ${p.status === 'ATIVO' 
+                            ? `<button type="button" class="btn-action btn-delete" onclick="crudPessoas.excluirLogico(${p.id})">Inativar</button>`
+                            : `<button type="button" class="btn-action btn-reactivate" onclick="crudPessoas.reativar(${p.id})">Reativar</button>`
+                        }
+                    </td>
+                </tr>
+            `,
+            fillForm: (form, item) => {
+                form.querySelector('[name="id"]').value = item.id;
+                form.querySelector('[name="tipo"]').value = item.tipo;
+                form.querySelector('[name="razao_social"]').value = item.razao_social;
+                form.querySelector('[name="cpf_cnpj"]').value = item.cpf_cnpj || '';
+            },
+            getFormData: (form) => ({
+                tipo: form.querySelector('[name="tipo"]').value,
+                razao_social: form.querySelector('[name="razao_social"]').value,
+                cpf_cnpj: form.querySelector('[name="cpf_cnpj"]').value,
+                status: 'ATIVO'
+            })
+        });
+    </script>
+</body>
+</html>
