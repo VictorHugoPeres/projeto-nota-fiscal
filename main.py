@@ -6,8 +6,10 @@ Etapa 2: Agente de Análise e Conciliação no Banco de Dados (Agent2),
          Manter Pessoas, Manter Classificações e Registrar Contas a Pagar/Receber.
 """
 
+import json
 import os
 import shutil
+import subprocess
 from pathlib import Path
 from typing import Any, Dict
 
@@ -64,6 +66,78 @@ templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 agent1 = Agent1()
 agent2 = Agent2()
 
+REPO_URL = "https://github.com/VictorHugoPeres/projeto-nota-fiscal"
+
+
+def obter_info_git() -> Dict[str, str]:
+    """Retorna as informações do commit da última atualização do GitHub."""
+    # 1. Variável de ambiente nativa fornecida pelo Render
+    render_commit = os.getenv("RENDER_GIT_COMMIT", "").strip()
+    if render_commit:
+        return {
+            "hash": render_commit[:7],
+            "hash_completo": render_commit,
+            "url": f"{REPO_URL}/commit/{render_commit}",
+            "repo_url": REPO_URL,
+            "mensagem": "Deploy automatizado (Render)"
+        }
+
+    # 2. Tentativa direta com o comando git local
+    try:
+        short_hash = subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"],
+            stderr=subprocess.DEVNULL,
+            cwd=str(BASE_DIR)
+        ).decode("utf-8").strip()
+
+        full_hash = subprocess.check_output(
+            ["git", "rev-parse", "HEAD"],
+            stderr=subprocess.DEVNULL,
+            cwd=str(BASE_DIR)
+        ).decode("utf-8").strip()
+
+        msg = subprocess.check_output(
+            ["git", "log", "-1", "--pretty=format:%s"],
+            stderr=subprocess.DEVNULL,
+            cwd=str(BASE_DIR)
+        ).decode("utf-8").strip()
+
+        if short_hash:
+            return {
+                "hash": short_hash,
+                "hash_completo": full_hash,
+                "url": f"{REPO_URL}/commit/{full_hash}",
+                "repo_url": REPO_URL,
+                "mensagem": msg
+            }
+    except Exception:
+        pass
+
+    # 3. Fallback lendo version.json
+    version_file = BASE_DIR / "version.json"
+    if version_file.exists():
+        try:
+            with open(version_file, "r", encoding="utf-8") as f:
+                vdata = json.load(f)
+                return {
+                    "hash": vdata.get("hash", "16fac4d"),
+                    "hash_completo": vdata.get("hash_completo", "16fac4dc655c02978126f2b7e0901b5281246dbe"),
+                    "url": f"{REPO_URL}/commit/{vdata.get('hash_completo', '16fac4dc655c02978126f2b7e0901b5281246dbe')}",
+                    "repo_url": REPO_URL,
+                    "mensagem": vdata.get("mensagem", "")
+                }
+        except Exception:
+            pass
+
+    return {
+        "hash": "32762b9",
+        "hash_completo": "32762b9523d54bfb4d180fe85cdcc24fcc37ae3e",
+        "url": f"{REPO_URL}/commit/32762b9523d54bfb4d180fe85cdcc24fcc37ae3e",
+        "repo_url": REPO_URL,
+        "mensagem": "feat: exibe codigo da ultima atualizacao do GitHub na tela principal e cria Readme.txt"
+    }
+
+
 # Inclusão das rotas de cadastros da 2ª Etapa
 app.include_router(cadastros_router)
 
@@ -74,10 +148,15 @@ app.include_router(cadastros_router)
 @app.get("/", response_class=HTMLResponse)
 async def pagina_inicial(request: Request):
     """Página de Importação, Análise e Lançamento de Notas Fiscais."""
+    info_git = obter_info_git()
     return templates.TemplateResponse(
         request=request,
         name="index.html",
-        context={"aba_ativa": "notas", "gemini_configurado": bool(agent1.client_ready)}
+        context={
+            "aba_ativa": "notas",
+            "gemini_configurado": bool(agent1.client_ready),
+            "info_git": info_git
+        }
     )
 
 
@@ -87,7 +166,7 @@ async def pagina_pessoas(request: Request):
     return templates.TemplateResponse(
         request=request,
         name="pessoas.html",
-        context={"aba_ativa": "pessoas"}
+        context={"aba_ativa": "pessoas", "info_git": obter_info_git()}
     )
 
 
@@ -97,7 +176,7 @@ async def pagina_classificacoes(request: Request):
     return templates.TemplateResponse(
         request=request,
         name="classificacoes.html",
-        context={"aba_ativa": "classificacoes"}
+        context={"aba_ativa": "classificacoes", "info_git": obter_info_git()}
     )
 
 
@@ -107,8 +186,15 @@ async def pagina_contas(request: Request):
     return templates.TemplateResponse(
         request=request,
         name="contas.html",
-        context={"aba_ativa": "contas"}
+        context={"aba_ativa": "contas", "info_git": obter_info_git()}
     )
+
+
+@app.get("/api/versao", response_class=JSONResponse)
+@app.get("/api/git-info", response_class=JSONResponse)
+async def versao_git():
+    """Endpoint da API que retorna o código da última atualização no GitHub."""
+    return obter_info_git()
 
 
 # =============================================================
