@@ -1,9 +1,9 @@
 """Aplicação Principal FastAPI - Sistema Administrativo-Financeiro com Agentes Inteligentes.
 
 Disciplina: ESW424 - Prática de Engenharia de Software (UniRV)
-Etapa 1: Agente Inteligente de Extração e Classificação de Notas Fiscais (Agent1).
-Etapa 2: Agente de Análise e Conciliação no Banco de Dados (Agent2),
-         Manter Pessoas, Manter Classificações e Registrar Contas a Pagar/Receber.
+1ª Etapa: Agente Inteligente de Extração e Classificação de Notas Fiscais (Agent1).
+2ª Etapa: Agente de Verificação, Persistência e Lançamento de Movimentos (Agent2),
+          Manter Pessoas, Manter Classificações e Registrar Contas a Pagar/Receber.
 """
 
 import json
@@ -20,12 +20,12 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
-# Arquitetura de Agentes (Russell & Norvig)
+# Arquitetura Modular de Agentes (Russell & Norvig / Especificação UniRV)
 from agents.agent1.manipulacao_dados import Agent1
-from agents.agent2.analise_dados import Agent2
+from agents.agent2.persistencia_dados import Agent2
 
 # Banco de dados e Rotas da 2ª Etapa
-from database import get_db, init_db
+from database.connection import get_db, init_db
 from routes.cadastros import router as cadastros_router
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -44,12 +44,14 @@ app = FastAPI(
     version="2.0.0"
 )
 
-# Inicializa banco de dados ao iniciar
+
+# Inicializa banco de dados ao iniciar a aplicação
 @app.on_event("startup")
 def on_startup():
     init_db()
 
-# Configuração de CORS para máxima flexibilidade
+
+# Configuração de CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -71,7 +73,6 @@ REPO_URL = "https://github.com/VictorHugoPeres/projeto-nota-fiscal"
 
 def obter_info_git() -> Dict[str, str]:
     """Retorna as informações do commit da última atualização do GitHub."""
-    # 1. Variável de ambiente nativa fornecida pelo Render
     render_commit = os.getenv("RENDER_GIT_COMMIT", "").strip()
     if render_commit:
         return {
@@ -82,7 +83,6 @@ def obter_info_git() -> Dict[str, str]:
             "mensagem": "Deploy automatizado (Render)"
         }
 
-    # 2. Tentativa direta com o comando git local
     try:
         short_hash = subprocess.check_output(
             ["git", "rev-parse", "--short", "HEAD"],
@@ -113,7 +113,6 @@ def obter_info_git() -> Dict[str, str]:
     except Exception:
         pass
 
-    # 3. Fallback lendo version.json
     version_file = BASE_DIR / "version.json"
     if version_file.exists():
         try:
@@ -130,11 +129,11 @@ def obter_info_git() -> Dict[str, str]:
             pass
 
     return {
-        "hash": "32762b9",
-        "hash_completo": "32762b9523d54bfb4d180fe85cdcc24fcc37ae3e",
-        "url": f"{REPO_URL}/commit/32762b9523d54bfb4d180fe85cdcc24fcc37ae3e",
+        "hash": "16fac4d",
+        "hash_completo": "16fac4dc655c02978126f2b7e0901b5281246dbe",
+        "url": f"{REPO_URL}/commit/16fac4dc655c02978126f2b7e0901b5281246dbe",
         "repo_url": REPO_URL,
-        "mensagem": "feat: exibe codigo da ultima atualizacao do GitHub na tela principal e cria Readme.txt"
+        "mensagem": "feat: Sistema Administrativo-Financeiro N2 UniRV"
     }
 
 
@@ -232,29 +231,31 @@ async def extrair_nota_fiscal(file: UploadFile = File(...)) -> Dict[str, Any]:
         file.file.close()
 
 
+@app.post("/api/verificar-existencia", response_class=JSONResponse)
 @app.post("/api/analisar-entidades", response_class=JSONResponse)
-async def analisar_entidades(dados: Dict[str, Any], db: Session = Depends(get_db)):
+async def verificar_existencia_endpoint(dados: Dict[str, Any], db: Session = Depends(get_db)):
     """Endpoint da Etapa 2: Agent2 consulta existência de Fornecedor, Faturado e Despesa."""
     try:
-        resultado = agent2.consultar_entidades(dados, db)
+        resultado = agent2.verificar_existencia(dados, db)
         return {"sucesso": True, "analise": resultado}
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=f"Erro ao consultar entidades no banco de dados: {str(e)}"
+            detail=f"Erro ao verificar existência de entidades no banco de dados: {str(e)}"
         )
 
 
+@app.post("/api/persistir-movimento", response_class=JSONResponse)
 @app.post("/api/lancar-movimento", response_class=JSONResponse)
-async def lancar_movimento(dados: Dict[str, Any], db: Session = Depends(get_db)):
+async def persistir_movimento_endpoint(dados: Dict[str, Any], db: Session = Depends(get_db)):
     """Endpoint da Etapa 2: Agent2 cria entidades inexistentes e lança movimento com parcelas."""
     try:
-        resultado = agent2.lancar_no_banco(dados, db)
+        resultado = agent2.persistir_movimento(dados, db)
         return resultado
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=f"Erro ao lançar movimento no banco de dados: {str(e)}"
+            detail=f"Erro ao persistir movimento no banco de dados: {str(e)}"
         )
 
 
@@ -264,8 +265,8 @@ async def health_check():
     return {
         "status": "online",
         "agentes": {
-            "agent1": "Extração e Classificação de DANFE (PDF)",
-            "agent2": "Análise, Conciliação e Lançamento de Movimentos"
+            "agent1": "Extração e Classificação Multimodal de DANFE (PDF)",
+            "agent2": "Verificação, Conciliação e Persistência de Movimentos"
         },
         "gemini_disponivel": agent1.client_ready,
         "uploads_total": len(list(UPLOADS_DIR.glob("*.pdf")))

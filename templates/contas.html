@@ -3,129 +3,178 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Registrar Contas | ESW424 UniRV</title>
+    <title>Registrar Contas | Projeto TFC - UniRV</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+    </style>
 </head>
-<body>
-    <div class="app-container">
-        <!-- Navegação Superior -->
-        {% include "nav_header.html" %}
+<body class="bg-slate-100 text-slate-800 antialiased min-h-screen flex">
 
-        <div class="crud-container">
-            <div class="crud-header">
-                <div>
-                    <h2 class="card-title">Registrar Contas</h2>
-                    <p class="card-description">Movimentos Financeiros (Contas a Pagar / Contas a Receber) e Parcelas</p>
-                </div>
-                <div style="font-size: 0.85rem; color: #64748b; background: #f8fafc; padding: 0.5rem 0.85rem; border-radius: 6px; border: 1px solid #e2e8f0;">
-                    💡 <em>Lançamentos automáticos também são gerados pela Importação de Notas Fiscais</em>
-                </div>
+    <!-- Sidebar Lateral Padrão Professor (Página 5) -->
+    {% include "sidebar.html" %}
+
+    <!-- Conteúdo Principal -->
+    <div class="flex-1 flex flex-col min-w-0 overflow-y-auto">
+        <!-- Topbar -->
+        <header class="bg-white border-b border-slate-200 px-8 py-4 flex items-center justify-between">
+            <div>
+                <h1 class="text-2xl font-bold text-slate-900 tracking-tight">Registrar Contas</h1>
+                <p class="text-sm text-slate-500">Consulta e Gestão de Contas a Pagar, Contas a Receber e Parcelas (Etapa 2 - ESW424)</p>
             </div>
+            <a href="/" class="px-4 py-2 rounded-lg font-bold text-xs bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition flex items-center gap-1.5">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                + Lançar via Nota Fiscal (IA)
+            </a>
+        </header>
 
-            <!-- Barra de Busca -->
-            <div class="search-bar-row">
-                <input type="text" id="inputBusca" class="input-search" placeholder="Buscar por fornecedor, descrição, NF...">
-                <button type="button" class="btn-buscar" id="btnBuscar">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="11" cy="11" r="8"></circle>
-                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                    </svg>
-                    Buscar
-                </button>
-                <button type="button" class="btn-todos" id="btnTodos">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="8" y1="6" x2="21" y2="6"></line>
-                        <line x1="8" y1="12" x2="21" y2="12"></line>
-                        <line x1="8" y1="18" x2="21" y2="18"></line>
-                        <line x1="3" y1="6" x2="3.01" y2="6"></line>
-                        <line x1="3" y1="12" x2="3.01" y2="12"></line>
-                        <line x1="3" y1="18" x2="3.01" y2="18"></line>
-                    </svg>
-                    Todos (Ativos)
-                </button>
+        <!-- Main Workspace -->
+        <main class="p-8 max-w-6xl mx-auto w-full space-y-6">
 
-                <label style="font-size: 0.85rem; color: #64748b; margin-left: auto; display: flex; align-items: center; gap: 0.35rem; cursor: pointer;">
-                    <input type="checkbox" id="checkInativos"> Exibir Inativos
-                </label>
+            <!-- Card: Buscar Contas (Padrão Exato do Professor) -->
+            <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                <h2 class="text-sm font-bold uppercase tracking-wider text-slate-600 mb-3">Buscar Contas</h2>
+                
+                <div class="flex flex-col sm:flex-row gap-3">
+                    <div class="relative flex-1">
+                        <input type="text" id="inputBusca" class="w-full pl-4 pr-10 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" placeholder="Buscar por fornecedor, número do documento/NF, descrição dos produtos...">
+                    </div>
+
+                    <button type="button" id="btnBuscar" class="px-5 py-2.5 rounded-lg font-bold text-sm bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition flex items-center justify-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                        Buscar
+                    </button>
+
+                    <button type="button" id="btnTodos" class="px-5 py-2.5 rounded-lg font-bold text-sm bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition flex items-center justify-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
+                        Todos (Ativos)
+                    </button>
+                </div>
+
+                <div class="mt-3 flex items-center justify-between text-xs text-slate-500">
+                    <span>* A tabela inicia vazia. Realize uma busca ou clique em <strong>Todos</strong>.</span>
+                    <label class="flex items-center gap-2 cursor-pointer font-medium hover:text-slate-700">
+                        <input type="checkbox" id="checkInativos" class="rounded text-blue-600 focus:ring-blue-500">
+                        Exibir registros inativos
+                    </label>
+                </div>
+            </section>
+
+            <!-- Card: Tabela de Movimentos -->
+            <section class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+                    <h3 class="text-base font-bold text-slate-900">Lista de Movimentos Financeiros</h3>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-slate-50 text-slate-600 font-bold text-xs uppercase tracking-wider border-b border-slate-200">
+                            <tr>
+                                <th class="py-3 px-4"># ID</th>
+                                <th class="py-3 px-4">Tipo</th>
+                                <th class="py-3 px-4">Nº Documento</th>
+                                <th class="py-3 px-4">Fornecedor</th>
+                                <th class="py-3 px-4">Faturado</th>
+                                <th class="py-3 px-4">Classificação</th>
+                                <th class="py-3 px-4 text-right">Valor Total</th>
+                                <th class="py-3 px-4">Parcelas</th>
+                                <th class="py-3 px-4 text-center">Status</th>
+                                <th class="py-3 px-4 text-right">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabelaMovimentosCorpo" class="divide-y divide-slate-100">
+                            <tr>
+                                <td colspan="10" class="py-8 text-center text-slate-400">
+                                    Nenhum movimento encontrado. Digite um termo de busca ou clique em <strong>Todos</strong>.
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- Modal Detalhes do Movimento e Parcelas -->
+    <div id="modalDetalhesMovimento" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl border border-slate-200 max-w-xl w-full overflow-hidden">
+            <div class="bg-slate-900 text-white px-6 py-4 flex items-center justify-between">
+                <h3 id="modalDetalhesTitulo" class="text-base font-bold">Detalhes do Movimento</h3>
+                <button type="button" onclick="fecharModalDetalhes()" class="text-slate-400 hover:text-white">&times;</button>
             </div>
-
-            <!-- Tabela de Movimentos -->
-            <div class="table-wrapper">
-                <table class="crud-table">
-                    <thead>
-                        <tr>
-                            <th># ID</th>
-                            <th>Tipo</th>
-                            <th>Descrição / NF</th>
-                            <th>Fornecedor / Pessoa</th>
-                            <th>Valor Total</th>
-                            <th>Parcelas</th>
-                            <th>Status</th>
-                            <th style="width: 100px;">Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tabelaMovimentosCorpo">
-                        <tr>
-                            <td colspan="8" style="text-align: center; padding: 2.5rem; color: #94a3b8;">
-                                Digite um termo de busca ou clique no botão <strong>Todos</strong> para listar os movimentos de contas.
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+            <div id="modalDetalhesCorpo" class="p-6 space-y-4 text-sm">
+                <!-- Preenchido via JS -->
+            </div>
+            <div class="p-4 bg-slate-50 border-t border-slate-100 flex justify-end">
+                <button type="button" onclick="fecharModalDetalhes()" class="px-4 py-2 rounded-lg text-xs font-bold bg-slate-200 text-slate-700 hover:bg-slate-300 transition">
+                    Fechar
+                </button>
             </div>
         </div>
-
-        <footer class="app-footer" style="margin-top: 2rem;">
-            <p>Universidade de Rio Verde (UniRV) • ESW424 Prática de Engenharia de Software</p>
-            <p class="footer-sub">Avaliação N2 - Etapa 2: Módulo Registrar Contas</p>
-        </footer>
     </div>
 
     <script src="/static/js/crud.js"></script>
     <script>
-        const crudMovimentos = new CrudManager({
-            endpoint: '/api/movimentos',
-            tableBodyId: 'tabelaMovimentosCorpo',
-            searchInputId: 'inputBusca',
-            btnBuscarId: 'btnBuscar',
-            btnTodosId: 'btnTodos',
-            filterInativosCheckboxId: 'checkInativos',
-            renderRow: (m) => `
-                <tr>
-                    <td class="code-font" style="font-weight: 700;">#${m.id}</td>
-                    <td>
-                        <span style="font-weight: 700; font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 4px; ${m.tipo === 'APAGAR' ? 'background: #fee2e2; color: #b91c1c;' : 'background: #dcfce7; color: #15803d;'}">
-                            ${m.tipo}
-                        </span>
-                    </td>
-                    <td>
-                        <div style="font-weight: 600;">${m.descricao}</div>
-                        ${m.numero_nota ? `<div style="font-size: 0.78rem; color: #64748b;">NF: ${m.numero_nota}</div>` : ''}
-                    </td>
-                    <td>${m.pessoa ? m.pessoa.razao_social : '-'}</td>
-                    <td class="code-font" style="font-weight: 700; color: #0f172a;">
-                        R$ ${Number(m.valor_total).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    </td>
-                    <td>
-                        <span style="font-size: 0.8rem; background: #eff6ff; color: #1d4ed8; font-weight: 600; padding: 0.2rem 0.5rem; border-radius: 4px;">
-                            ${m.parcelas ? m.parcelas.length : 1}x parcela(s)
-                        </span>
-                    </td>
-                    <td>
-                        <span class="badge-status-${m.status.toLowerCase()}">${m.status}</span>
-                    </td>
-                    <td class="actions-cell">
-                        ${m.status === 'ATIVO' 
-                            ? `<button type="button" class="btn-action btn-delete" onclick="crudMovimentos.excluirLogico(${m.id})">Inativar</button>`
-                            : `<button type="button" class="btn-action btn-reactivate" onclick="crudMovimentos.reativar(${m.id})">Reativar</button>`
-                        }
-                    </td>
-                </tr>
-            `
+        document.addEventListener('DOMContentLoaded', () => {
+            window.crudMovimentos = new CrudManager({
+                endpoint: '/api/movimentos',
+                tableBodyId: 'tabelaMovimentosCorpo',
+                searchInputId: 'inputBusca',
+                btnBuscarId: 'btnBuscar',
+                btnTodosId: 'btnTodos',
+                btnNovoId: null,
+                modalId: 'modalDetalhesMovimento',
+                formId: null,
+                filterInativosCheckboxId: 'checkInativos',
+
+                renderRow: (m) => {
+                    const isAtivo = m.status === 'ATIVO';
+                    const tipoBadge = m.tipo === 'APAGAR'
+                        ? '<span class="px-2 py-0.5 rounded text-xs font-bold bg-red-100 text-red-800">APAGAR</span>'
+                        : '<span class="px-2 py-0.5 rounded text-xs font-bold bg-emerald-100 text-emerald-800">ARECEBER</span>';
+
+                    const statusBadge = isAtivo
+                        ? '<span class="px-2.5 py-0.5 rounded text-[11px] font-bold bg-emerald-100 text-emerald-800">ATIVO</span>'
+                        : '<span class="px-2.5 py-0.5 rounded text-[11px] font-bold bg-red-100 text-red-800">INATIVO</span>';
+
+                    const formatCurrency = (val) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0);
+
+                    const classifs = m.classificacoes?.map(c => c.descricao).join(', ') || '-';
+                    const fornNome = m.fornecedor?.razao_social || m.pessoa?.razao_social || '-';
+                    const fatNome = m.faturado?.razao_social || '-';
+                    const qtdParc = m.parcelas?.length || 1;
+
+                    const acoesBtn = isAtivo
+                        ? `<button onclick="crudMovimentos.excluirLogico(${m.id})" class="text-xs font-bold text-red-600 hover:text-red-800">Inativar</button>`
+                        : `<button onclick="crudMovimentos.reativar(${m.id})" class="text-xs font-bold text-emerald-600 hover:text-emerald-800">Reativar</button>`;
+
+                    return `
+                        <tr class="hover:bg-slate-50 transition border-b border-slate-100">
+                            <td class="py-3 px-4 font-mono font-bold text-slate-500">#${m.id}</td>
+                            <td class="py-3 px-4">${tipoBadge}</td>
+                            <td class="py-3 px-4 font-mono font-bold text-blue-600">${m.numero_documento || m.numero_nota || '-'}</td>
+                            <td class="py-3 px-4 font-medium text-slate-900">${fornNome}</td>
+                            <td class="py-3 px-4 text-slate-700">${fatNome}</td>
+                            <td class="py-3 px-4 text-xs font-semibold text-slate-600">${classifs}</td>
+                            <td class="py-3 px-4 text-right font-black text-slate-950">${formatCurrency(m.valor_total)}</td>
+                            <td class="py-3 px-4"><span class="px-2 py-0.5 rounded text-xs bg-slate-100 text-slate-700 font-mono">${qtdParc} parc</span></td>
+                            <td class="py-3 px-4 text-center">${statusBadge}</td>
+                            <td class="py-3 px-4 text-right whitespace-nowrap">${acoesBtn}</td>
+                        </tr>
+                    `;
+                }
+            });
         });
+
+        function fecharModalDetalhes() {
+            document.getElementById('modalDetalhesMovimento').style.display = 'none';
+        }
     </script>
 </body>
 </html>

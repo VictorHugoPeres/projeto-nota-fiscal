@@ -1,10 +1,10 @@
 /**
- * Frontend Logic - ESW424 Nota Fiscal AI Agent
- * Gerencia o upload, comunicação com a API FastAPI, animações do Agente e renderização das abas.
+ * Frontend JavaScript - Sistema Administrativo-Financeiro (UniRV)
+ * Gerencia Upload da NF, Extração Multimodal com IA e Atividade da 2ª Etapa.
  */
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Elementos da interface
+    // Elementos do Dropzone e Upload
     const dropzone = document.getElementById('dropzone');
     const fileInput = document.getElementById('fileInput');
     const dropzonePrompt = document.getElementById('dropzonePrompt');
@@ -13,384 +13,46 @@ document.addEventListener('DOMContentLoaded', () => {
     const fileSize = document.getElementById('fileSize');
     const btnRemoveFile = document.getElementById('btnRemoveFile');
 
+    // Botão de Extração e Indicadores
     const btnExtrair = document.getElementById('btnExtrair');
     const btnText = document.getElementById('btnText');
     const btnSpinner = document.getElementById('btnSpinner');
     const btnIcon = document.getElementById('btnIcon');
-
     const agentProcessCard = document.getElementById('agentProcessCard');
     const stepPerceber = document.getElementById('stepPerceber');
     const stepProcessar = document.getElementById('stepProcessar');
     const stepDecidir = document.getElementById('stepDecidir');
     const stepAgir = document.getElementById('stepAgir');
 
+    // Cards de Exibição
     const resultsCard = document.getElementById('resultsCard');
+    const etapa2Section = document.getElementById('etapa2Section');
+
+    // Abas de Dados Extraídos
     const tabBtns = document.querySelectorAll('.tab-btn');
     const tabContents = document.querySelectorAll('.tab-content');
 
-    // Aba Formatada
+    // Campos da Aba Formatada
     const displayCategory = document.getElementById('displayCategory');
     const displaySubcategory = document.getElementById('displaySubcategory');
     const displayJustificativa = document.getElementById('displayJustificativa');
-
     const dispFornecedorRazao = document.getElementById('dispFornecedorRazao');
     const dispFornecedorFantasia = document.getElementById('dispFornecedorFantasia');
     const dispFornecedorCnpj = document.getElementById('dispFornecedorCnpj');
-
     const dispFaturadoNome = document.getElementById('dispFaturadoNome');
     const dispFaturadoCpf = document.getElementById('dispFaturadoCpf');
-
     const dispNumeroNota = document.getElementById('dispNumeroNota');
     const dispDataEmissao = document.getElementById('dispDataEmissao');
     const dispDataVencimento = document.getElementById('dispDataVencimento');
-    const dispParcelas = document.getElementById('dispParcelas');
     const dispValorTotal = document.getElementById('dispValorTotal');
-
     const itemsTableBody = document.getElementById('itemsTableBody');
 
     // Aba JSON
     const jsonOutput = document.getElementById('jsonOutput');
     const btnCopyJson = document.getElementById('btnCopyJson');
     const btnCopyText = document.getElementById('btnCopyText');
-    const toast = document.getElementById('toast');
 
-    let currentFile = null;
-    let currentExtractedData = null;
-
-    // =========================================================================
-    // 1. GERENCIAMENTO DE UPLOAD E DRAG & DROP
-    // =========================================================================
-    ['dragenter', 'dragover'].forEach(eventName => {
-        dropzone.addEventListener(eventName, (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            dropzone.classList.add('dragover');
-        });
-    });
-
-    ['dragleave', 'drop'].forEach(eventName => {
-        dropzone.addEventListener(eventName, (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            dropzone.classList.remove('dragover');
-        });
-    });
-
-    dropzone.addEventListener('drop', (e) => {
-        const files = e.dataTransfer.files;
-        if (files && files.length > 0) {
-            handleSelectedFile(files[0]);
-        }
-    });
-
-    fileInput.addEventListener('change', (e) => {
-        if (e.target.files && e.target.files.length > 0) {
-            handleSelectedFile(e.target.files[0]);
-        }
-    });
-
-    btnRemoveFile.addEventListener('click', (e) => {
-        e.stopPropagation();
-        resetFileSelection();
-    });
-
-    function handleSelectedFile(file) {
-        if (!file.name.toLowerCase().endsWith('.pdf')) {
-            showToast('Apenas arquivos no formato PDF são permitidos!');
-            return;
-        }
-
-        currentFile = file;
-        fileName.textContent = file.name;
-
-        // Calcula tamanho em MB
-        const sizeMb = (file.size / (1024 * 1024)).toFixed(2);
-        fileSize.textContent = `${sizeMb} MB`;
-
-        // Alterna visão do dropzone para preview
-        dropzonePrompt.style.display = 'none';
-        filePreview.style.display = 'flex';
-        btnExtrair.disabled = false;
-    }
-
-    function resetFileSelection() {
-        currentFile = null;
-        fileInput.value = '';
-        dropzonePrompt.style.display = 'block';
-        filePreview.style.display = 'none';
-        btnExtrair.disabled = true;
-        agentProcessCard.style.display = 'none';
-    }
-
-    // =========================================================================
-    // 2. DISPARO DO AGENTE DE IA (PERCEBER -> PROCESSAR -> DECIDIR -> AGIR)
-    // =========================================================================
-    btnExtrair.addEventListener('click', async () => {
-        if (!currentFile) return;
-
-        // Estado visual de carregamento
-        btnExtrair.disabled = true;
-        btnSpinner.style.display = 'inline-block';
-        btnIcon.style.display = 'none';
-        btnText.textContent = 'PROCESSANDO...';
-
-        // Mostra o visualizador de passos do Agente
-        agentProcessCard.style.display = 'block';
-        resetAgentSteps();
-
-        // Animação dos passos do ciclo de Russell & Norvig
-        setStepActive(stepPerceber);
-
-        const formData = new FormData();
-        formData.append('file', currentFile);
-
-        try {
-            // Simulação de transição de passos
-            const stepTimer1 = setTimeout(() => {
-                setStepCompleted(stepPerceber);
-                setStepActive(stepProcessar);
-            }, 500);
-
-            const stepTimer2 = setTimeout(() => {
-                setStepCompleted(stepProcessar);
-                setStepActive(stepDecidir);
-            }, 1100);
-
-            const response = await fetch('/api/extrair', {
-                method: 'POST',
-                body: formData
-            });
-
-            clearTimeout(stepTimer1);
-            clearTimeout(stepTimer2);
-
-            setStepCompleted(stepDecidir);
-            setStepActive(stepAgir);
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.detail || 'Falha ao processar nota fiscal');
-            }
-
-            const result = await response.json();
-            currentExtractedData = result.dados;
-
-            setStepCompleted(stepAgir);
-
-            // Renderiza os dados no layout
-            renderResults(currentExtractedData);
-
-            // Exibe o card de resultados e rola a tela suavemente
-            resultsCard.style.display = 'block';
-            resultsCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
-
-            // Dispara automaticamente a Atividade da 2ª Etapa (Análise no Banco de Dados)
-            executarAnaliseEtapa2(currentExtractedData);
-
-            showToast('Nota fiscal extraída e classificada com sucesso!');
-
-        } catch (error) {
-            console.error('Erro na extração:', error);
-            showToast(`Erro: ${error.message}`);
-        } finally {
-            btnExtrair.disabled = false;
-            btnSpinner.style.display = 'none';
-            btnIcon.style.display = 'inline-block';
-            btnText.textContent = 'EXTRAIR DADOS';
-        }
-    });
-
-    function resetAgentSteps() {
-        [stepPerceber, stepProcessar, stepDecidir, stepAgir].forEach(step => {
-            step.className = 'agent-step';
-        });
-    }
-
-    function setStepActive(stepEl) {
-        stepEl.classList.add('active');
-    }
-
-    function setStepCompleted(stepEl) {
-        stepEl.classList.remove('active');
-        stepEl.classList.add('completed');
-    }
-
-    // =========================================================================
-    // 3. RENDERIZAÇÃO DOS DADOS FORMATADOS E DO JSON
-    // =========================================================================
-    function renderResults(data) {
-        // 1. Banner de Classificação de Despesa
-        const classif = (data.classificacao_despesa && data.classificacao_despesa[0]) || {};
-        const categoria = data.tipo_despesa || classif.categoria || 'MANUTENÇÃO E OPERAÇÃO';
-        const subcategoria = classif.subcategoria || 'Componentes e Peças Operacionais';
-        const justificativa = classif.justificativa || 'Classificação atribuída conforme a análise dos produtos da Nota Fiscal.';
-
-        displayCategory.textContent = categoria;
-        displaySubcategory.textContent = subcategoria;
-        displayJustificativa.textContent = justificativa;
-
-        // 2. Fornecedor
-        dispFornecedorRazao.textContent = data.fornecedor?.razao_social || 'NÃO IDENTIFICADO';
-        dispFornecedorFantasia.textContent = data.fornecedor?.fantasia || '-';
-        dispFornecedorCnpj.textContent = data.fornecedor?.cnpj || '-';
-
-        // 3. Faturado
-        dispFaturadoNome.textContent = data.faturado?.nome || 'NÃO IDENTIFICADO';
-        dispFaturadoCpf.textContent = data.faturado?.cpf || '-';
-
-        // 4. Detalhes da Nota
-        dispNumeroNota.textContent = data.numero_nota || data.numero || '-';
-        dispDataEmissao.textContent = data.data_emissao || data.dataEmissao || '-';
-        dispDataVencimento.textContent = data.data_vencimento || '-';
-
-        const qtdParcelas = data.quantidade_parcelas || 1;
-        dispParcelas.textContent = `${qtdParcelas} ${qtdParcelas > 1 ? 'parcelas' : 'parcela'}`;
-
-        const valorTotal = typeof data.valor_total === 'number' ? data.valor_total : 0.0;
-        dispValorTotal.textContent = formatCurrency(valorTotal);
-
-        // 5. Tabela de Produtos
-        itemsTableBody.innerHTML = '';
-        const produtos = data.descricao_produtos || data.itens || [];
-
-        if (Array.isArray(produtos) && produtos.length > 0) {
-            produtos.forEach(item => {
-                const tr = document.createElement('tr');
-
-                const tdCod = document.createElement('td');
-                tdCod.className = 'code-font';
-                tdCod.textContent = item.codigo || '-';
-
-                const tdDesc = document.createElement('td');
-                tdDesc.textContent = item.descricao || 'Produto sem descrição';
-
-                const tdUn = document.createElement('td');
-                tdUn.className = 'text-center code-font';
-                tdUn.textContent = item.unidade || 'UN';
-
-                const tdQtd = document.createElement('td');
-                tdQtd.className = 'text-right';
-                tdQtd.textContent = typeof item.quantidade === 'number' ? item.quantidade : '1';
-
-                const tdVUnit = document.createElement('td');
-                tdVUnit.className = 'text-right';
-                tdVUnit.textContent = typeof item.valor_unitario === 'number' ? formatCurrency(item.valor_unitario) : '-';
-
-                const tdVTot = document.createElement('td');
-                tdVTot.className = 'text-right font-bold';
-                tdVTot.textContent = typeof item.valor_total === 'number' ? formatCurrency(item.valor_total) : '-';
-
-                tr.appendChild(tdCod);
-                tr.appendChild(tdDesc);
-                tr.appendChild(tdUn);
-                tr.appendChild(tdQtd);
-                tr.appendChild(tdVUnit);
-                tr.appendChild(tdVTot);
-
-                itemsTableBody.appendChild(tr);
-            });
-        } else {
-            const tr = document.createElement('tr');
-            const td = document.createElement('td');
-            td.colSpan = 6;
-            td.className = 'text-center';
-            td.textContent = 'Nenhum produto discriminado.';
-            tr.appendChild(td);
-            itemsTableBody.appendChild(tr);
-        }
-
-        // 6. Bloco JSON estilizado
-        const jsonFormatted = JSON.stringify(data, null, 2);
-        jsonOutput.innerHTML = syntaxHighlightJson(jsonFormatted);
-    }
-
-    function formatCurrency(val) {
-        return new Intl.NumberFormat('pt-BR', {
-            style: 'currency',
-            currency: 'BRL'
-        }).format(val);
-    }
-
-    // =========================================================================
-    // 4. NAVEGAÇÃO DE ABAS
-    // =========================================================================
-    tabBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
-            const targetTab = btn.dataset.tab;
-
-            tabBtns.forEach(b => b.classList.remove('active'));
-            tabContents.forEach(c => c.classList.remove('active'));
-
-            btn.classList.add('active');
-            document.getElementById(targetTab).classList.add('active');
-        });
-    });
-
-    // =========================================================================
-    // 5. COPIAR JSON
-    // =========================================================================
-    btnCopyJson.addEventListener('click', async () => {
-        if (!currentExtractedData) return;
-
-        try {
-            const jsonText = JSON.stringify(currentExtractedData, null, 2);
-            await navigator.clipboard.writeText(jsonText);
-
-            btnCopyText.textContent = 'Copiado!';
-            showToast('JSON copiado para a área de transferência!');
-
-            setTimeout(() => {
-                btnCopyText.textContent = 'Copiar JSON';
-            }, 2000);
-        } catch (err) {
-            console.error('Falha ao copiar:', err);
-            showToast('Não foi possível copiar automaticamente.');
-        }
-    });
-
-    // =========================================================================
-    // 6. SYNTAX HIGHLIGHTING PARA O JSON
-    // =========================================================================
-    function syntaxHighlightJson(jsonStr) {
-        jsonStr = jsonStr.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        return jsonStr.replace(
-            /("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g,
-            function (match) {
-                let cls = 'json-number';
-                if (/^"/.test(match)) {
-                    if (/:$/.test(match)) {
-                        cls = 'json-key';
-                    } else {
-                        cls = 'json-string';
-                    }
-                } else if (/true|false/.test(match)) {
-                    cls = 'json-boolean';
-                } else if (/null/.test(match)) {
-                    cls = 'json-null';
-                }
-                return '<span class="' + cls + '">' + match + '</span>';
-            }
-        );
-    }
-
-    // =========================================================================
-    // 7. TOAST NOTIFICATIONS
-    // =========================================================================
-    let toastTimeout = null;
-    function showToast(msg) {
-        toast.textContent = msg;
-        toast.classList.add('show');
-
-        if (toastTimeout) clearTimeout(toastTimeout);
-        toastTimeout = setTimeout(() => {
-            toast.classList.remove('show');
-        }, 3200);
-    }
-
-    // =========================================================================
-    // 8. ATIVIDADE DA 2ª ETAPA: ANÁLISE NO BANCO E LANÇAMENTO (Páginas 1 e 2)
-    // =========================================================================
-    const etapa2Section = document.getElementById('etapa2Section');
+    // Elementos da Atividade 2ª Etapa (Páginas 1 e 2 do PDF)
     const analiseFornNome = document.getElementById('analiseFornNome');
     const analiseFornDoc = document.getElementById('analiseFornDoc');
     const analiseFornStatusBadge = document.getElementById('analiseFornStatusBadge');
@@ -405,113 +67,425 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnLancarBD = document.getElementById('btnLancarBD');
     const boxLancamentoSucesso = document.getElementById('boxLancamentoSucesso');
     const detalhesLancamentoTexto = document.getElementById('detalhesLancamentoTexto');
+    const toast = document.getElementById('toast');
 
-    async function executarAnaliseEtapa2(data) {
+    let currentFile = null;
+    let currentExtractedData = null;
+
+    // =========================================================================
+    // 1. UPLOAD E DRAG & DROP
+    // =========================================================================
+    if (dropzone) {
+        dropzone.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        ['dragenter', 'dragover'].forEach(name => {
+            dropzone.addEventListener(name, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropzone.classList.add('dropzone-active');
+            });
+        });
+
+        ['dragleave', 'drop'].forEach(name => {
+            dropzone.addEventListener(name, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropzone.classList.remove('dropzone-active');
+            });
+        });
+
+        dropzone.addEventListener('drop', (e) => {
+            const files = e.dataTransfer.files;
+            if (files && files.length > 0) {
+                handleSelectedFile(files[0]);
+            }
+        });
+    }
+
+    if (fileInput) {
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files && e.target.files.length > 0) {
+                handleSelectedFile(e.target.files[0]);
+            }
+        });
+    }
+
+    if (btnRemoveFile) {
+        btnRemoveFile.addEventListener('click', (e) => {
+            e.stopPropagation();
+            resetFileSelection();
+        });
+    }
+
+    function handleSelectedFile(file) {
+        if (!file.name.toLowerCase().endsWith('.pdf')) {
+            showToast('Apenas arquivos em formato PDF (.pdf) são aceitos.', true);
+            return;
+        }
+
+        currentFile = file;
+        fileName.textContent = file.name;
+        const sizeMb = (file.size / (1024 * 1024)).toFixed(2);
+        fileSize.textContent = `${sizeMb} MB`;
+
+        dropzonePrompt.classList.add('hidden');
+        filePreview.classList.remove('hidden');
+        btnExtrair.disabled = false;
+    }
+
+    function resetFileSelection() {
+        currentFile = null;
+        fileInput.value = '';
+        dropzonePrompt.classList.remove('hidden');
+        filePreview.classList.add('hidden');
+        btnExtrair.disabled = true;
+        if (agentProcessCard) agentProcessCard.classList.add('hidden');
+    }
+
+    // =========================================================================
+    // 2. EXTRAÇÃO DE DADOS (ETAPA 1)
+    // =========================================================================
+    if (btnExtrair) {
+        btnExtrair.addEventListener('click', async () => {
+            if (!currentFile) return;
+
+            btnExtrair.disabled = true;
+            btnSpinner.classList.remove('hidden');
+            btnIcon.classList.add('hidden');
+            btnText.textContent = 'EXTRAINDO DADOS...';
+
+            if (agentProcessCard) agentProcessCard.classList.remove('hidden');
+            highlightStep(stepPerceber);
+
+            const formData = new FormData();
+            formData.append('file', currentFile);
+
+            try {
+                setTimeout(() => highlightStep(stepProcessar), 600);
+                setTimeout(() => highlightStep(stepDecidir), 1200);
+
+                const response = await fetch('/api/extrair', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                highlightStep(stepAgir);
+
+                if (!response.ok) {
+                    const err = await response.json();
+                    throw new Error(err.detail || 'Falha ao extrair dados do PDF.');
+                }
+
+                const result = await response.json();
+                currentExtractedData = result.dados;
+
+                // Renderiza Card de Resultados (Figura 2)
+                renderResults(currentExtractedData);
+                resultsCard.classList.remove('hidden');
+
+                // DISPARA AUTOMATICAMENTE A ATIVIDADE DA 2ª ETAPA:
+                // Consulta no Banco se Fornecedor, Faturado e Despesa existem!
+                await executarVerificacaoExistencia(currentExtractedData);
+
+                showToast('Nota fiscal extraída e entidades consultadas com sucesso!');
+
+                // Rola para a seção da 2ª Etapa
+                etapa2Section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+            } catch (error) {
+                console.error('Erro na extração:', error);
+                showToast(`Erro: ${error.message}`, true);
+            } finally {
+                btnExtrair.disabled = false;
+                btnSpinner.classList.add('hidden');
+                btnIcon.classList.remove('hidden');
+                btnText.textContent = 'EXTRAIR DADOS';
+            }
+        });
+    }
+
+    function highlightStep(stepEl) {
+        [stepPerceber, stepProcessar, stepDecidir, stepAgir].forEach(s => {
+            if (s) {
+                s.className = 'py-2 px-1 rounded bg-slate-800 border border-slate-700 text-slate-400';
+            }
+        });
+        if (stepEl) {
+            stepEl.className = 'py-2 px-1 rounded bg-blue-600 text-white font-bold border border-blue-400 shadow-sm';
+        }
+    }
+
+    // =========================================================================
+    // 3. RENDERIZAÇÃO DOS DADOS EXTRAÍDOS
+    // =========================================================================
+    function renderResults(data) {
+        const classif = (data.classificacao_despesa && data.classificacao_despesa[0]) || {};
+        const categoria = data.tipo_despesa || classif.categoria || 'MANUTENÇÃO E OPERAÇÃO';
+        const subcategoria = classif.subcategoria || 'Peças e Componentes Operacionais';
+        const justificativa = classif.justificativa || 'Classificação realizada com base na análise dos itens da Nota Fiscal.';
+
+        displayCategory.textContent = categoria;
+        displaySubcategory.textContent = subcategoria;
+        displayJustificativa.textContent = justificativa;
+
+        dispFornecedorRazao.textContent = data.fornecedor?.razao_social || 'NÃO IDENTIFICADO';
+        dispFornecedorFantasia.textContent = data.fornecedor?.fantasia || data.fornecedor?.nome_fantasia || '-';
+        dispFornecedorCnpj.textContent = data.fornecedor?.cnpj || data.fornecedor?.documento || '-';
+
+        dispFaturadoNome.textContent = data.faturado?.nome || data.faturado?.razao_social || 'NÃO IDENTIFICADO';
+        dispFaturadoCpf.textContent = data.faturado?.cpf || data.faturado?.documento || '-';
+
+        dispNumeroNota.textContent = data.numero_nota || data.numero_documento || data.numero || '-';
+        dispDataEmissao.textContent = data.data_emissao || '-';
+        dispDataVencimento.textContent = data.data_vencimento || '-';
+
+        const valorTotal = typeof data.valor_total === 'number' ? data.valor_total : 0.0;
+        dispValorTotal.textContent = formatCurrency(valorTotal);
+
+        // Itens
+        itemsTableBody.innerHTML = '';
+        const itens = data.descricao_produtos || data.itens || [];
+
+        if (Array.isArray(itens) && itens.length > 0) {
+            itens.forEach(item => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-50 transition';
+
+                const codigo = typeof item === 'object' ? (item.codigo || '-') : '-';
+                const desc = typeof item === 'object' ? (item.descricao || JSON.stringify(item)) : String(item);
+                const un = typeof item === 'object' ? (item.unidade || 'UN') : 'UN';
+                const qtd = typeof item === 'object' ? (item.quantidade || 1) : 1;
+                const vUnit = typeof item === 'object' && typeof item.valor_unitario === 'number' ? formatCurrency(item.valor_unitario) : '-';
+                const vTot = typeof item === 'object' && typeof item.valor_total === 'number' ? formatCurrency(item.valor_total) : '-';
+
+                tr.innerHTML = `
+                    <td class="py-2.5 px-3 font-mono text-slate-500">${codigo}</td>
+                    <td class="py-2.5 px-3 font-medium text-slate-800">${desc}</td>
+                    <td class="py-2.5 px-3 text-center font-mono">${un}</td>
+                    <td class="py-2.5 px-3 text-right font-medium">${qtd}</td>
+                    <td class="py-2.5 px-3 text-right">${vUnit}</td>
+                    <td class="py-2.5 px-3 text-right font-bold text-slate-900">${vTot}</td>
+                `;
+                itemsTableBody.appendChild(tr);
+            });
+        } else {
+            itemsTableBody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="py-4 text-center text-slate-400">Nenhum produto discriminado no PDF.</td>
+                </tr>
+            `;
+        }
+
+        // Bloco JSON
+        const jsonFormatted = JSON.stringify(data, null, 2);
+        jsonOutput.innerHTML = syntaxHighlightJson(jsonFormatted);
+    }
+
+    // =========================================================================
+    // 4. ATIVIDADE 2ª ETAPA: VERIFICAÇÃO DE EXISTÊNCIA NO BANCO (PÁGINA 2 DO PDF)
+    // =========================================================================
+    async function executarVerificacaoExistencia(data) {
         if (!etapa2Section) return;
 
         try {
-            const res = await fetch('/api/analisar-entidades', {
+            const res = await fetch('/api/verificar-existencia', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data)
             });
 
-            if (!res.ok) throw new Error('Falha ao consultar entidades no banco');
+            if (!res.ok) throw new Error('Falha ao verificar entidades no banco de dados.');
 
-            const resposta = await res.json();
-            const analise = resposta.analise;
+            const resData = await res.json();
+            const analise = resData.analise;
 
-            // 1. Fornecedor
+            // 1. FORNECEDOR (Exatamente conforme layout da Página 2)
             analiseFornNome.textContent = analise.fornecedor.nome;
             analiseFornDoc.textContent = `CNPJ: ${analise.fornecedor.documento}`;
             if (analise.fornecedor.existe) {
-                analiseFornStatusBadge.innerHTML = `<span class="analise-status-pill status-existe">EXISTE – ID: ${analise.fornecedor.id}</span>`;
+                analiseFornStatusBadge.innerHTML = `
+                    <span class="inline-flex items-center gap-1 px-3 py-1 rounded text-xs font-black uppercase bg-emerald-100 text-emerald-800 border border-emerald-300">
+                        <span class="w-2 h-2 rounded-full bg-emerald-600"></span>
+                        EXISTE – ID: ${analise.fornecedor.id}
+                    </span>
+                `;
             } else {
-                analiseFornStatusBadge.innerHTML = `<span class="analise-status-pill status-nao-existe">NÃO EXISTE</span>`;
+                analiseFornStatusBadge.innerHTML = `
+                    <span class="inline-flex items-center gap-1 px-3 py-1 rounded text-xs font-black uppercase bg-red-100 text-red-800 border border-red-300">
+                        <span class="w-2 h-2 rounded-full bg-red-600"></span>
+                        NÃO EXISTE
+                    </span>
+                `;
             }
 
-            // 2. Faturado
+            // 2. FATURADO (Exatamente conforme layout da Página 2)
             analiseFatNome.textContent = analise.faturado.nome;
             analiseFatDoc.textContent = `CPF: ${analise.faturado.documento}`;
             if (analise.faturado.existe) {
-                analiseFatStatusBadge.innerHTML = `<span class="analise-status-pill status-existe">EXISTE – ID: ${analise.faturado.id}</span>`;
+                analiseFatStatusBadge.innerHTML = `
+                    <span class="inline-flex items-center gap-1 px-3 py-1 rounded text-xs font-black uppercase bg-emerald-100 text-emerald-800 border border-emerald-300">
+                        <span class="w-2 h-2 rounded-full bg-emerald-600"></span>
+                        EXISTE – ID: ${analise.faturado.id}
+                    </span>
+                `;
             } else {
-                analiseFatStatusBadge.innerHTML = `<span class="analise-status-pill status-nao-existe">NÃO EXISTE</span>`;
+                analiseFatStatusBadge.innerHTML = `
+                    <span class="inline-flex items-center gap-1 px-3 py-1 rounded text-xs font-black uppercase bg-red-100 text-red-800 border border-red-300">
+                        <span class="w-2 h-2 rounded-full bg-red-600"></span>
+                        NÃO EXISTE
+                    </span>
+                `;
             }
 
-            // 3. Despesa
+            // 3. DESPESA (Exatamente conforme layout da Página 2)
             analiseDespDesc.textContent = analise.despesa.descricao;
             if (analise.despesa.existe) {
-                analiseDespStatusBadge.innerHTML = `<span class="analise-status-pill status-existe">EXISTE – ID: ${analise.despesa.id}</span>`;
+                analiseDespStatusBadge.innerHTML = `
+                    <span class="inline-flex items-center gap-1 px-3 py-1 rounded text-xs font-black uppercase bg-emerald-100 text-emerald-800 border border-emerald-300">
+                        <span class="w-2 h-2 rounded-full bg-emerald-600"></span>
+                        EXISTE – ID: ${analise.despesa.id}
+                    </span>
+                `;
             } else {
-                analiseDespStatusBadge.innerHTML = `<span class="analise-status-pill status-nao-existe">NÃO EXISTE</span>`;
+                analiseDespStatusBadge.innerHTML = `
+                    <span class="inline-flex items-center gap-1 px-3 py-1 rounded text-xs font-black uppercase bg-red-100 text-red-800 border border-red-300">
+                        <span class="w-2 h-2 rounded-full bg-red-600"></span>
+                        NÃO EXISTE
+                    </span>
+                `;
             }
 
-            // Mostra a seção da 2ª Etapa
-            etapa2Section.style.display = 'block';
-            if (boxLancamentoSucesso) boxLancamentoSucesso.style.display = 'none';
+            // Exibe o Card da 2ª Etapa
+            etapa2Section.classList.remove('hidden');
+            if (boxLancamentoSucesso) boxLancamentoSucesso.classList.add('hidden');
 
         } catch (err) {
-            console.error('Erro na análise da Etapa 2:', err);
+            console.error('Erro na verificação da Etapa 2:', err);
+            showToast('Erro ao verificar entidades no banco de dados', true);
         }
     }
 
+    // =========================================================================
+    // 5. CONFIRMAR E GRAVAR NO BANCO DE DADOS (PÁGINA 2 DO PDF)
+    // =========================================================================
     if (btnLancarBD) {
         btnLancarBD.addEventListener('click', async () => {
             if (!currentExtractedData) {
-                showToast('Nenhum dado de nota fiscal carregado.');
+                showToast('Nenhum dado de nota fiscal carregado.', true);
                 return;
             }
 
             btnLancarBD.disabled = true;
-            btnLancarBD.innerHTML = 'LANÇANDO NO BANCO...';
+            btnLancarBD.textContent = 'GRAVANDO NO BANCO...';
 
             try {
-                const res = await fetch('/api/lancar-movimento', {
+                const res = await fetch('/api/persistir-movimento', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(currentExtractedData)
                 });
 
                 if (!res.ok) {
-                    const errData = await res.json();
-                    throw new Error(errData.detail || 'Falha ao lançar movimento no banco');
+                    const err = await res.json();
+                    throw new Error(err.detail || 'Falha ao persistir movimento.');
                 }
 
                 const lancamento = await res.json();
 
                 if (boxLancamentoSucesso) {
-                    boxLancamentoSucesso.style.display = 'block';
-                    const mov = lancamento.detalhes;
+                    boxLancamentoSucesso.classList.remove('hidden');
+                    const det = lancamento.detalhes;
                     detalhesLancamentoTexto.innerHTML = `
-                        <strong>Lançamento realizado com sucesso!</strong><br>
-                        &bull; Movimento <strong>#${mov.movimento_id}</strong> (Tipo: <strong>${mov.tipo_movimento}</strong>)<br>
-                        &bull; Fornecedor: <strong>${mov.fornecedor.nome}</strong> (ID: #${mov.fornecedor.id})<br>
-                        &bull; Faturado: <strong>${mov.faturado.nome}</strong> (ID: #${mov.faturado.id})<br>
-                        &bull; Classificação: <strong>${mov.despesa.descricao}</strong> (ID: #${mov.despesa.id})<br>
-                        &bull; Parcelas Geradas: <strong>${mov.parcelas.join(', ')}</strong><br>
-                        &bull; Valor Total: <strong>R$ ${Number(mov.valor_total).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong>
+                        <strong>Lançamento realizado com sucesso:</strong><br>
+                        &bull; Movimento <strong>#${det.movimento_id}</strong> (Tipo: <strong>${det.tipo}</strong>)<br>
+                        &bull; Fornecedor: <strong>${det.fornecedor.razao_social}</strong> (ID: #${det.fornecedor.id}) ${det.fornecedor.criado_agora ? '<span class="text-xs bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded font-bold">CRIADO NOVO</span>' : '<span class="text-xs bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded">JÁ EXISTIA</span>'}<br>
+                        &bull; Faturado: <strong>${det.faturado.razao_social}</strong> (ID: #${det.faturado.id}) ${det.faturado.criado_agora ? '<span class="text-xs bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded font-bold">CRIADO NOVO</span>' : '<span class="text-xs bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded">JÁ EXISTIA</span>'}<br>
+                        &bull; Classificação: <strong>${det.despesa.descricao}</strong> (ID: #${det.despesa.id})<br>
+                        &bull; Parcelas Geradas: <strong>${det.parcelas.join(', ')}</strong><br>
+                        &bull; Valor Total: <strong>${formatCurrency(det.valor_total)}</strong>
                     `;
                     boxLancamentoSucesso.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                 }
 
                 showToast('5. REGISTRO FOI LANÇADO COM SUCESSO!');
 
-                // Atualiza o diagnóstico para mostrar as entidades agora existentes
-                await executarAnaliseEtapa2(currentExtractedData);
+                // Atualiza o diagnóstico na tela para refletir o status atualizado no BD
+                await executarVerificacaoExistencia(currentExtractedData);
 
             } catch (err) {
-                console.error('Erro ao lançar movimento:', err);
-                showToast('Erro: ' + err.message);
+                console.error('Erro ao persistir movimento:', err);
+                showToast(`Erro: ${err.message}`, true);
             } finally {
                 btnLancarBD.disabled = false;
                 btnLancarBD.innerHTML = `
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-                        <polyline points="20 6 9 17 4 12"></polyline>
-                    </svg>
-                    LANÇAR NO BANCO DE DADOS
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                    Confirmar e Gravar no Banco de Dados
                 `;
             }
         });
+    }
+
+    // =========================================================================
+    // 6. CONTROLE DE ABAS E UTILITÁRIOS
+    // =========================================================================
+    tabBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const target = btn.dataset.tab;
+            tabBtns.forEach(b => {
+                b.className = 'tab-btn px-4 py-1.5 rounded-md transition text-slate-600 hover:text-slate-900';
+            });
+            tabContents.forEach(c => c.classList.add('hidden'));
+
+            btn.className = 'tab-btn px-4 py-1.5 rounded-md transition bg-white text-slate-900 shadow-sm font-bold';
+            document.getElementById(target).classList.remove('hidden');
+        });
+    });
+
+    if (btnCopyJson) {
+        btnCopyJson.addEventListener('click', async () => {
+            if (!currentExtractedData) return;
+            try {
+                await navigator.clipboard.writeText(JSON.stringify(currentExtractedData, null, 2));
+                btnCopyText.textContent = 'Copiado!';
+                showToast('JSON copiado com sucesso!');
+                setTimeout(() => { btnCopyText.textContent = 'Copiar JSON'; }, 2000);
+            } catch {
+                showToast('Falha ao copiar JSON para a área de transferência.', true);
+            }
+        });
+    }
+
+    function formatCurrency(v) {
+        return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
+    }
+
+    function syntaxHighlightJson(jsonStr) {
+        jsonStr = jsonStr.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        return jsonStr.replace(
+            /("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g,
+            function (match) {
+                let cls = 'json-number';
+                if (/^"/.test(match)) {
+                    cls = (/:$/.test(match)) ? 'json-key' : 'json-string';
+                } else if (/true|false/.test(match)) {
+                    cls = 'json-boolean';
+                }
+                return '<span class="' + cls + '">' + match + '</span>';
+            }
+        );
+    }
+
+    let toastTimer = null;
+    function showToast(msg, isError = false) {
+        if (!toast) return;
+        toast.textContent = msg;
+        toast.className = `fixed bottom-5 right-5 px-5 py-3 rounded-lg shadow-xl text-white font-semibold text-xs transition-opacity duration-300 opacity-100 z-50 ${isError ? 'bg-red-600 border border-red-500' : 'bg-slate-900 border border-slate-700'}`;
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => {
+            toast.classList.remove('opacity-100');
+            toast.classList.add('opacity-0');
+        }, 3200);
     }
 });

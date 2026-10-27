@@ -1,0 +1,72 @@
+<!-- Sidebar Lateral Esquerda - Padrão "Projeto TFC" do Professor (Página 5 do PDF) -->
+<aside class="w-64 bg-slate-900 text-white min-h-screen flex flex-col flex-shrink-0 shadow-xl border-r border-slate-800">
+    <!-- Top Header: Nome do Projeto -->
+    <div class="px-6 py-5 border-b border-slate-800/80 flex items-center justify-between">
+        <div>
+            <h1 class="text-lg font-bold tracking-tight text-white flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                Projeto TFC
+            </h1>
+            <p class="text-[11px] text-slate-400 font-medium tracking-wide">UniRV • ESW424 N2</p>
+        </div>
+    </div>
+
+    <!-- Perfil do Usuário (COORDENADOR conforme Modelo do Professor) -->
+    <div class="px-6 py-6 border-b border-slate-800/80 flex flex-col items-center text-center">
+        <div class="w-16 h-16 rounded-full bg-slate-800 border-2 border-slate-700 flex items-center justify-center text-slate-300 mb-2.5 shadow-inner">
+            <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+            </svg>
+        </div>
+        <span class="text-xs font-bold uppercase tracking-wider text-white">COORDENADOR</span>
+        <span class="mt-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-blue-600 text-white shadow-sm">Coordenador</span>
+        <a href="/" class="mt-3 inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+            </svg>
+            Sair
+        </a>
+    </div>
+
+    <!-- Links do Menu Lateral -->
+    <nav class="flex-1 px-3 py-4 space-y-1.5 text-sm font-medium">
+        <a href="/" class="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all {% if aba_ativa == 'notas' %}bg-blue-600 text-white shadow-md font-semibold{% else %}text-slate-300 hover:bg-slate-800 hover:text-white{% endif %}">
+            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+            </svg>
+            <span>Extrair NF (IA)</span>
+        </a>
+
+        <a href="/pessoas" class="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all {% if aba_ativa == 'pessoas' %}bg-blue-600 text-white shadow-md font-semibold{% else %}text-slate-300 hover:bg-slate-800 hover:text-white{% endif %}">
+            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+            </svg>
+            <span>Pessoas (Fornecedor/Faturado)</span>
+        </a>
+
+        <a href="/classificacoes" class="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all {% if aba_ativa == 'classificacoes' %}bg-blue-600 text-white shadow-md font-semibold{% else %}text-slate-300 hover:bg-slate-800 hover:text-white{% endif %}">
+            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
+            </svg>
+            <span>Classificações (Despesas/Receitas)</span>
+        </a>
+
+        <a href="/contas" class="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all {% if aba_ativa == 'contas' %}bg-blue-600 text-white shadow-md font-semibold{% else %}text-slate-300 hover:bg-slate-800 hover:text-white{% endif %}">
+            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/>
+            </svg>
+            <span>Contas a Pagar e Parcelas</span>
+        </a>
+    </nav>
+
+    <!-- Rodapé da Sidebar: Commit GitHub e Status -->
+    <div class="p-4 border-t border-slate-800 text-xs text-slate-400 space-y-2">
+        <a href="{{ info_git.url if info_git else 'https://github.com/VictorHugoPeres/projeto-nota-fiscal' }}" target="_blank" rel="noopener noreferrer" class="flex items-center gap-2 hover:text-white transition group">
+            <svg class="w-4 h-4 fill-current text-slate-400 group-hover:text-white" viewBox="0 0 24 24">
+                <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+            </svg>
+            <span class="truncate">GitHub: <strong class="text-blue-400 font-mono">{{ info_git.hash if info_git else '16fac4d' }}</strong></span>
+        </a>
+    </div>
+</aside>
+

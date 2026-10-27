@@ -159,14 +159,25 @@ class Agent1:
             or ""
         )
         self.client_ready = False
+        self.genai_client = None
 
         if self.api_key:
+            # 1. Tenta inicializar o SDK oficial google-genai
             try:
-                import google.generativeai as genai
-                genai.configure(api_key=self.api_key)
+                from google import genai
+                self.genai_client = genai.Client(api_key=self.api_key)
                 self.client_ready = True
             except Exception as e:
-                print(f"[Agent1] Aviso ao configurar Google Gemini: {e}")
+                print(f"[Agent1] SDK google-genai não disponível ou erro de init: {e}")
+
+            # 2. Fallback para google.generativeai legado
+            if not self.client_ready:
+                try:
+                    import google.generativeai as legacy_genai
+                    legacy_genai.configure(api_key=self.api_key)
+                    self.client_ready = True
+                except Exception as e:
+                    print(f"[Agent1] Aviso ao configurar Google Gemini: {e}")
 
     # =========================================================================
     # CICLO DO AGENTE: 1. PERCEBER (Perception)
@@ -323,9 +334,9 @@ class Agent1:
     # INTEGRAÇÃO COM GOOGLE GEMINI (LLM)
     # =========================================================================
     def _chamar_gemini(self, texto_nf: str, file_path: Optional[str] = None) -> Optional[Dict[str, Any]]:
-        """Invoca o modelo Google Gemini para extrair e classificar a Nota Fiscal."""
-        import google.generativeai as genai
-
+        """Invoca o modelo Google Gemini (SDK google-genai multimodal com fallback)
+        para extrair dados fiscais e classificar a despesa em formato JSON.
+        """
         prompt_sistema = f"""
 Você é um Agente Especialista em Engenharia de Software e Processamento de Documentos Fiscais.
 Sua missão é analisar uma Nota Fiscal (DANFE - Contas a Pagar) e gerar um JSON com:
@@ -388,37 +399,48 @@ FORMATO JSON OBRIGATÓRIO DE SAÍDA:
 Responda APENAS com o objeto JSON válido, sem comentários ou texto adicional.
 """
 
-        conteudo_requisicao = [
-            f"Analise o texto integral da DANFE a seguir, extraia com precisão cirúrgica os dados de cabeçalho e todos os produtos discriminados, e classifique a despesa de acordo com as regras:\n\n{texto_nf}"
-        ]
-
-        modelos = [
-            "gemini-flash-latest",
-            "gemini-3.8-flash"
-        ]
-
-        for nome_modelo in modelos:
+        # 1. TENTATIVA COM SDK OFICIAL google-genai MULTIMODAL (Requisito Oficial)
+        if self.genai_client:
             try:
-                model = genai.GenerativeModel(
-                    model_name=nome_modelo,
-                    system_instruction=prompt_sistema,
-                    generation_config={"response_mime_type": "application/json"}
+                from google.genai import types
+                contents = []
+
+                # Se o PDF existir, anexa como Parte Multimodal
+                if file_path and os.path.exists(file_path):
+                    with open(file_path, "rb") as f:
+                        pdf_bytes = f.read()
+                    contents.append(
+                        types.Part.from_bytes(data=pdf_bytes, mime_type="application/pdf")
+                    )
+
+                contents.append(
+                    f"Analise detalhadamente o documento fiscal anexado e/ou o texto a seguir, extraia todos os campos e classifique a despesa:\n\n{texto_nf}"
                 )
-                response = model.generate_content(
-                    conteudo_requisicao,
-                    request_options={"timeout": 35.0}
-                )
-                texto_resposta = response.text.strip()
-                if texto_resposta.startswith("```json"):
-                    texto_resposta = texto_resposta[7:]
-                if texto_resposta.endswith("```"):
-                    texto_resposta = texto_resposta[:-3]
-                dados = json.loads(texto_resposta.strip())
-                if isinstance(dados, dict):
-                    return dados
-            except Exception as e:
-                print(f"[Agent1] Erro ao consultar modelo {nome_modelo}: {e}")
-                continue
+
+                modelos_genai = ["gemini-3.8-flash", "gemini-2.5-flash", "gemini-1.5-flash"]
+                for modelo_genai in modelos_genai:
+                    try:
+                        resp = self.genai_client.models.generate_content(
+                            model=modelo_genai,
+                            contents=contents,
+                            config=types.GenerateContentConfig(
+                                system_instruction=prompt_sistema,
+                                response_mime_type="application/json",
+                            )
+                        )
+                        texto_resp = resp.text.strip()
+                        if texto_resp.startswith("```json"):
+                            texto_resp = texto_resp[7:]
+                        if texto_resp.endswith("```"):
+                            texto_resp = texto_resp[:-3]
+                        parsed = json.loads(texto_resp.strip())
+                        if isinstance(parsed, dict):
+                            return parsed
+                    except Exception as eg:
+                        print(f"[Agent1 google-genai] Modelo {modelo_genai} indisponível: {eg}")
+                        break
+            except Exception as e_genai:
+                print(f"[Agent1] Aviso na execução com google-genai: {e_genai}")
 
         return None
 
