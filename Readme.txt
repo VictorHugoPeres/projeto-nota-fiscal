@@ -7,13 +7,13 @@ AVALIAÇÃO N2 - PROJETO ADMINISTRATIVO-FINANCEIRO COM AGENTES INTELIGENTES
 - Login: Não se aplica (Acesso público direto sem necessidade de autenticação)
 - Senha: Não se aplica (Acesso público direto sem necessidade de autenticação)
 - Key (LLM): AQ.Ab8RN6IG9CGI8R8dnDg2bTWAp - u9JbtDIqh4H9bqop7H8Q2mrQ (Configurada no Render e no .env local)
-- Código Ultima Atualização no GitHub: 0e32de9
+- Código Ultima Atualização no GitHub: 1fc48a4
 
 --------------------------------------------------------------------
 INFORMAÇÕES COMPLEMENTARES DO PROJETO:
 --------------------------------------------------------------------
 - Repositório GitHub: https://github.com/VictorHugoPeres/projeto-nota-fiscal
-- Commit no GitHub: https://github.com/VictorHugoPeres/projeto-nota-fiscal/commit/32762b9523d54bfb4d180fe85cdcc24fcc37ae3e
+- Commit no GitHub: https://github.com/VictorHugoPeres/projeto-nota-fiscal/commit/1fc48a40d3d4116c3ef7b5c4035014313202d6ed
 - Vídeo de Demonstração (YouTube): https://youtu.be/ALScWWn-pBQ
 
 --------------------------------------------------------------------
