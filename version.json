@@ -1,7 +1,7 @@
 {
-    "repositorio":  "https://github.com/VictorHugoPeres/projeto-nota-fiscal",
-    "data":  "2026-10-28",
-    "hash_completo":  "b0538b6d5a64674c947a8733e116722bc5446748",
-    "hash":  "b0538b6",
-    "mensagem":  "fix(deps): adiciona itsdangerous e ativa login com perfis admin e cliente"
+  "hash": "7620ef0",
+  "hash_completo": "7620ef0b686d1ee5582aeeb53a991823eb97c11f",
+  "data": "2026-10-28",
+  "mensagem": "docs: atualiza Readme.txt de entrega e version.json para commit 7620ef0",
+  "repositorio": "https://github.com/VictorHugoPeres/projeto-nota-fiscal"
 }
