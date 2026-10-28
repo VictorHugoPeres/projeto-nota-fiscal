@@ -1,7 +1,7 @@
 {
     "repositorio":  "https://github.com/VictorHugoPeres/projeto-nota-fiscal",
     "data":  "2026-10-28",
-    "hash_completo":  "17ea18e9504e3106d7a9e55b3475753424b0f26b",
-    "hash":  "17ea18e",
-    "mensagem":  "fix(layout): corrige bug do toast flex overflow e adiciona autenticacao com perfis admin e cliente"
+    "hash_completo":  "b0538b6d5a64674c947a8733e116722bc5446748",
+    "hash":  "b0538b6",
+    "mensagem":  "fix(deps): adiciona itsdangerous e ativa login com perfis admin e cliente"
 }
