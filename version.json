@@ -1,7 +1,7 @@
 {
-  "hash": "7620ef0",
-  "hash_completo": "7620ef0b686d1ee5582aeeb53a991823eb97c11f",
+  "hash": "66a00ab",
+  "hash_completo": "66a00ab9c6f2a6dc9f91a56f6e80b875ad282711",
   "data": "2026-10-28",
-  "mensagem": "docs: atualiza Readme.txt de entrega e version.json para commit 7620ef0",
+  "mensagem": "fix(search): aprimora busca inteligente com remocao de acentos, pontuacao e multiplos campos",
   "repositorio": "https://github.com/VictorHugoPeres/projeto-nota-fiscal"
 }

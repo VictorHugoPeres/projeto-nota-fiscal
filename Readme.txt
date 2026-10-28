@@ -11,14 +11,14 @@ AVALIAÇÃO N2 - PROJETO ADMINISTRATIVO-FINANCEIRO COM AGENTES INTELIGENTES
 - Senha (Cliente): cliente
 
 - Key (LLM): Configurada nas variáveis de ambiente do Render (GEMINI_API_KEY)
-- Código Ultima Atualização no GitHub: 7620ef0
+- Código Ultima Atualização no GitHub: 66a00ab
   (Este código aparece visivelmente na barra superior da tela principal e no rodapé da barra lateral).
 
 --------------------------------------------------------------------
 INFORMAÇÕES COMPLEMENTARES DO PROJETO:
 --------------------------------------------------------------------
 - Repositório GitHub: https://github.com/VictorHugoPeres/projeto-nota-fiscal
-- Commit no GitHub: https://github.com/VictorHugoPeres/projeto-nota-fiscal/commit/7620ef0
+- Commit no GitHub: https://github.com/VictorHugoPeres/projeto-nota-fiscal/commit/66a00ab
 - Vídeo de Demonstração (YouTube): https://youtu.be/ALScWWn-pBQ
 
 --------------------------------------------------------------------
