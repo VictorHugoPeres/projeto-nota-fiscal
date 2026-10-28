@@ -1,7 +1,7 @@
 {
-  "hash": "b4d2819",
-  "hash_completo": "b4d2819d45e0d37e28b8cfeb5c942006733ec5fa",
-  "data": "2026-10-27",
-  "mensagem": "feat: implementa arquitetura modular de agentes, verificacao no banco de dados e layout Projeto TFC",
-  "repositorio": "https://github.com/VictorHugoPeres/projeto-nota-fiscal"
+    "repositorio":  "https://github.com/VictorHugoPeres/projeto-nota-fiscal",
+    "data":  "2026-10-28",
+    "hash_completo":  "17ea18e9504e3106d7a9e55b3475753424b0f26b",
+    "hash":  "17ea18e",
+    "mensagem":  "fix(layout): corrige bug do toast flex overflow e adiciona autenticacao com perfis admin e cliente"
 }

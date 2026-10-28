@@ -12,9 +12,16 @@
     <style>
         body { font-family: 'Plus Jakarta Sans', sans-serif; }
         .font-mono { font-family: 'JetBrains Mono', monospace; }
+        #toast, .toast {
+            position: fixed !important;
+            bottom: 24px !important;
+            right: 24px !important;
+            z-index: 99999 !important;
+            max-width: 420px !important;
+        }
     </style>
 </head>
-<body class="bg-slate-100 text-slate-800 antialiased min-h-screen flex">
+<body class="bg-slate-100 text-slate-800 antialiased min-h-screen flex overflow-x-hidden">
 
     <!-- Sidebar Lateral Padrão Professor (Página 5) -->
     {% include "sidebar.html" %}
@@ -106,11 +113,11 @@
     </div>
 
     <!-- Modal de Formulário (Padrão Novo Docente - Página 5) -->
-    <div id="modalPessoa" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div id="modalPessoa" style="display: none;" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 items-center justify-center p-4">
         <div class="bg-white rounded-xl shadow-2xl border border-slate-200 max-w-lg w-full overflow-hidden">
             <div class="bg-slate-900 text-white px-6 py-4 flex items-center justify-between">
                 <h3 class="modal-title text-base font-bold">Formulário de Pessoa</h3>
-                <button type="button" class="btn-cancelar text-slate-400 hover:text-white">&times;</button>
+                <button type="button" class="btn-cancelar text-slate-400 hover:text-white text-xl leading-none">&times;</button>
             </div>
 
             <form id="formPessoa" class="p-6 space-y-4">
@@ -145,7 +152,7 @@
 
                 <div class="pt-4 border-t border-slate-100 flex justify-end gap-3">
                     <button type="button" class="btn-cancelar px-4 py-2 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-100 transition">
-                        &times; Cancelar
+                        Cancelar
                     </button>
                     <button type="submit" class="px-5 py-2 rounded-lg text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition">
                         Salvar
@@ -155,10 +162,13 @@
         </div>
     </div>
 
+    <!-- Elemento fixo de Notificação / Toast -->
+    <div id="toast" style="display: none;" class="fixed bottom-6 right-6 z-[99999] px-5 py-3 rounded-xl shadow-2xl text-white font-semibold text-sm"></div>
+
     <script src="/static/js/crud.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            new CrudManager({
+            window.crudPessoas = new CrudManager({
                 endpoint: '/api/pessoas',
                 tableBodyId: 'tabelaPessoasCorpo',
                 searchInputId: 'inputBusca',
@@ -209,7 +219,6 @@
                     status: 'ATIVO'
                 })
             });
-            window.crudPessoas = window.crudPessoas || {};
         });
     </script>
 </body>

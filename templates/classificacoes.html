@@ -12,9 +12,16 @@
     <style>
         body { font-family: 'Plus Jakarta Sans', sans-serif; }
         .font-mono { font-family: 'JetBrains Mono', monospace; }
+        #toast, .toast {
+            position: fixed !important;
+            bottom: 24px !important;
+            right: 24px !important;
+            z-index: 99999 !important;
+            max-width: 420px !important;
+        }
     </style>
 </head>
-<body class="bg-slate-100 text-slate-800 antialiased min-h-screen flex">
+<body class="bg-slate-100 text-slate-800 antialiased min-h-screen flex overflow-x-hidden">
 
     <!-- Sidebar Lateral Padrão Professor (Página 5) -->
     {% include "sidebar.html" %}
@@ -25,20 +32,20 @@
         <header class="bg-white border-b border-slate-200 px-8 py-4 flex items-center justify-between">
             <div>
                 <h1 class="text-2xl font-bold text-slate-900 tracking-tight">Manter Classificação</h1>
-                <p class="text-sm text-slate-500">Gestão de Tipos de Despesas e Receitas do Agronegócio (Etapa 2 - ESW424)</p>
+                <p class="text-sm text-slate-500">Gestão do Plano de Despesas e Receitas (Etapa 2 - ESW424)</p>
             </div>
         </header>
 
         <!-- Main Workspace -->
         <main class="p-8 max-w-6xl mx-auto w-full space-y-6">
 
-            <!-- Card: Buscar Classificações (Padrão Exato do Professor) -->
+            <!-- Card: Buscar Classificações -->
             <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
                 <h2 class="text-sm font-bold uppercase tracking-wider text-slate-600 mb-3">Buscar Classificações</h2>
                 
                 <div class="flex flex-col sm:flex-row gap-3">
                     <div class="relative flex-1">
-                        <input type="text" id="inputBusca" class="w-full pl-4 pr-10 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" placeholder="Buscar por descrição da categoria (ex: MANUTENÇÃO E OPERAÇÃO, INSUMOS AGRÍCOLAS)...">
+                        <input type="text" id="inputBusca" class="w-full pl-4 pr-10 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" placeholder="Buscar por descrição ou tipo (DESPESA / RECEITA)...">
                     </div>
 
                     <button type="button" id="btnBuscar" class="px-5 py-2.5 rounded-lg font-bold text-sm bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition flex items-center justify-center gap-2">
@@ -64,7 +71,7 @@
             <!-- Card: Tabela de Classificações -->
             <section class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 <div class="border-b border-slate-200 px-6 py-4 flex items-center justify-between">
-                    <h3 class="text-base font-bold text-slate-900">Lista de Classificações</h3>
+                    <h3 class="text-base font-bold text-slate-900">Lista de Categorias</h3>
                     <button type="button" id="btnNovoClassificacao" class="px-4 py-2 rounded-lg font-bold text-xs bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition flex items-center gap-1.5">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                         + Inserir Nova Classificação
@@ -77,12 +84,12 @@
                             <tr>
                                 <th class="py-3 px-4"># ID</th>
                                 <th class="py-3 px-4">Tipo</th>
-                                <th class="py-3 px-4">Descrição da Categoria</th>
+                                <th class="py-3 px-4">Descrição da Classificação</th>
                                 <th class="py-3 px-4 text-center">Status</th>
                                 <th class="py-3 px-4 text-right">Ações</th>
                             </tr>
                         </thead>
-                        <tbody id="tabelaClassificacaoCorpo" class="divide-y divide-slate-100">
+                        <tbody id="tabelaClassificacoesCorpo" class="divide-y divide-slate-100">
                             <tr>
                                 <td colspan="5" class="py-8 text-center text-slate-400">
                                     Nenhuma classificação encontrada. Digite um termo de busca ou clique em <strong>Todos</strong>.
@@ -104,11 +111,11 @@
     </div>
 
     <!-- Modal de Formulário -->
-    <div id="modalClassificacao" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div id="modalClassificacao" style="display: none;" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 items-center justify-center p-4">
         <div class="bg-white rounded-xl shadow-2xl border border-slate-200 max-w-md w-full overflow-hidden">
             <div class="bg-slate-900 text-white px-6 py-4 flex items-center justify-between">
                 <h3 class="modal-title text-base font-bold">Formulário de Classificação</h3>
-                <button type="button" class="btn-cancelar text-slate-400 hover:text-white">&times;</button>
+                <button type="button" class="btn-cancelar text-slate-400 hover:text-white text-xl leading-none">&times;</button>
             </div>
 
             <form id="formClassificacao" class="p-6 space-y-4">
@@ -130,7 +137,7 @@
 
                 <div class="pt-4 border-t border-slate-100 flex justify-end gap-3">
                     <button type="button" class="btn-cancelar px-4 py-2 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-100 transition">
-                        &times; Cancelar
+                        Cancelar
                     </button>
                     <button type="submit" class="px-5 py-2 rounded-lg text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition">
                         Salvar
@@ -140,12 +147,15 @@
         </div>
     </div>
 
+    <!-- Elemento fixo de Notificação / Toast -->
+    <div id="toast" style="display: none;" class="fixed bottom-6 right-6 z-[99999] px-5 py-3 rounded-xl shadow-2xl text-white font-semibold text-sm"></div>
+
     <script src="/static/js/crud.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             window.crudClassificacoes = new CrudManager({
                 endpoint: '/api/classificacoes',
-                tableBodyId: 'tabelaClassificacaoCorpo',
+                tableBodyId: 'tabelaClassificacoesCorpo',
                 searchInputId: 'inputBusca',
                 btnBuscarId: 'btnBuscar',
                 btnTodosId: 'btnTodos',
@@ -156,10 +166,9 @@
 
                 renderRow: (c) => {
                     const isAtivo = c.status === 'ATIVO';
-                    const isDespesa = c.tipo === 'DESPESA';
-                    const tipoBadge = isDespesa
-                        ? '<span class="px-2 py-0.5 rounded text-xs font-semibold bg-amber-100 text-amber-800">DESPESA</span>'
-                        : '<span class="px-2 py-0.5 rounded text-xs font-semibold bg-emerald-100 text-emerald-800">RECEITA</span>';
+                    const tipoBadge = c.tipo === 'DESPESA'
+                        ? '<span class="px-2 py-0.5 rounded text-xs font-bold bg-amber-100 text-amber-800">DESPESA</span>'
+                        : '<span class="px-2 py-0.5 rounded text-xs font-bold bg-emerald-100 text-emerald-800">RECEITA</span>';
 
                     const statusBadge = isAtivo
                         ? '<span class="px-2.5 py-0.5 rounded text-[11px] font-bold bg-emerald-100 text-emerald-800">ATIVO</span>'

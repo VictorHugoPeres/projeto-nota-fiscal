@@ -3,7 +3,8 @@
 Disciplina: ESW424 - Prática de Engenharia de Software (UniRV)
 1ª Etapa: Agente Inteligente de Extração e Classificação de Notas Fiscais (Agent1).
 2ª Etapa: Agente de Verificação, Persistência e Lançamento de Movimentos (Agent2),
-          Manter Pessoas, Manter Classificações e Registrar Contas a Pagar/Receber.
+          Manter Pessoas, Manter Classificações, Registrar Contas a Pagar/Receber,
+          e Controle de Acesso com Perfis (Administrador e Cliente).
 """
 
 import json
@@ -11,14 +12,15 @@ import os
 import shutil
 import subprocess
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
+from starlette.middleware.sessions import SessionMiddleware
 
 # Arquitetura Modular de Agentes (Russell & Norvig / Especificação UniRV)
 from agents.agent1.manipulacao_dados import Agent1
@@ -41,15 +43,15 @@ TEMPLATES_DIR.mkdir(parents=True, exist_ok=True)
 app = FastAPI(
     title="Sistema Administrativo-Financeiro - UniRV",
     description="ESW424 - Prática de Engenharia de Software | Avaliação N2 (Etapas 1 e 2)",
-    version="2.0.0"
+    version="2.1.0"
 )
 
-
-# Inicializa banco de dados ao iniciar a aplicação
-@app.on_event("startup")
-def on_startup():
-    init_db()
-
+# Middleware de Sessão para Autenticação (Perfis Admin e Cliente)
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=os.getenv("SESSION_SECRET", "esw424-unirv-n2-segredo-super-seguro-2026"),
+    max_age=86400  # 24 horas
+)
 
 # Configuração de CORS
 app.add_middleware(
@@ -59,6 +61,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Inicializa banco de dados ao iniciar a aplicação
+@app.on_event("startup")
+def on_startup():
+    init_db()
 
 # Montagem de arquivos estáticos e templates Jinja2
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
@@ -137,16 +144,84 @@ def obter_info_git() -> Dict[str, str]:
     }
 
 
+def obter_usuario_sessao(request: Request) -> Optional[Dict[str, str]]:
+    """Recupera o usuário logado na sessão ou None se não autenticado."""
+    return request.session.get("usuario")
+
+
 # Inclusão das rotas de cadastros da 2ª Etapa
 app.include_router(cadastros_router)
 
 
 # =============================================================
-# ROTAS DE PÁGINAS HTML (INTERFACE WEB)
+# ROTAS DE AUTENTICAÇÃO (LOGIN / LOGOUT / PERFIS)
+# =============================================================
+@app.get("/login", response_class=HTMLResponse)
+async def login_page(request: Request):
+    """Página de Login com perfis padrão Admin e Cliente."""
+    usuario = obter_usuario_sessao(request)
+    if usuario:
+        return RedirectResponse(url="/", status_code=303)
+
+    return templates.TemplateResponse(
+        request=request,
+        name="login.html",
+        context={"erro": None}
+    )
+
+
+@app.post("/login")
+async def login_action(request: Request):
+    """Valida as credenciais e grava o perfil na sessão."""
+    form = await request.form()
+    username = form.get("username", "").strip().lower()
+    password = form.get("password", "").strip()
+
+    # Validação do perfil Administrador (Acesso Total)
+    if username in ["admin", "administrador"] and password in ["admin", "admin123", "123456"]:
+        request.session["usuario"] = {
+            "username": "admin",
+            "role": "admin",
+            "nome": "ADMINISTRADOR",
+            "cargo": "Administrador Geral"
+        }
+        return RedirectResponse(url="/", status_code=303)
+
+    # Validação do perfil Cliente (Restrito: NÃO pode inativar contas)
+    if username in ["cliente"] and password in ["cliente", "cliente123", "123456"]:
+        request.session["usuario"] = {
+            "username": "cliente",
+            "role": "cliente",
+            "nome": "CLIENTE",
+            "cargo": "Cliente (Consulta)"
+        }
+        return RedirectResponse(url="/", status_code=303)
+
+    return templates.TemplateResponse(
+        request=request,
+        name="login.html",
+        context={"erro": "Credenciais inválidas. Utilize 'admin/admin' ou 'cliente/cliente'."},
+        status_code=400
+    )
+
+
+@app.get("/logout")
+async def logout_action(request: Request):
+    """Encerra a sessão e redireciona para a tela de login."""
+    request.session.clear()
+    return RedirectResponse(url="/login", status_code=303)
+
+
+# =============================================================
+# ROTAS DE PÁGINAS HTML (INTERFACE WEB PROTEGIDAS POR LOGIN)
 # =============================================================
 @app.get("/", response_class=HTMLResponse)
 async def pagina_inicial(request: Request):
     """Página de Importação, Análise e Lançamento de Notas Fiscais."""
+    usuario = obter_usuario_sessao(request)
+    if not usuario:
+        return RedirectResponse(url="/login", status_code=303)
+
     info_git = obter_info_git()
     return templates.TemplateResponse(
         request=request,
@@ -154,7 +229,8 @@ async def pagina_inicial(request: Request):
         context={
             "aba_ativa": "notas",
             "gemini_configurado": bool(agent1.client_ready),
-            "info_git": info_git
+            "info_git": info_git,
+            "usuario": usuario
         }
     )
 
@@ -162,30 +238,54 @@ async def pagina_inicial(request: Request):
 @app.get("/pessoas", response_class=HTMLResponse)
 async def pagina_pessoas(request: Request):
     """Página de Manter Pessoas (Fornecedores, Clientes e Faturados)."""
+    usuario = obter_usuario_sessao(request)
+    if not usuario:
+        return RedirectResponse(url="/login", status_code=303)
+
     return templates.TemplateResponse(
         request=request,
         name="pessoas.html",
-        context={"aba_ativa": "pessoas", "info_git": obter_info_git()}
+        context={
+            "aba_ativa": "pessoas",
+            "info_git": obter_info_git(),
+            "usuario": usuario
+        }
     )
 
 
 @app.get("/classificacoes", response_class=HTMLResponse)
 async def pagina_classificacoes(request: Request):
     """Página de Manter Classificação (Despesas e Receitas)."""
+    usuario = obter_usuario_sessao(request)
+    if not usuario:
+        return RedirectResponse(url="/login", status_code=303)
+
     return templates.TemplateResponse(
         request=request,
         name="classificacoes.html",
-        context={"aba_ativa": "classificacoes", "info_git": obter_info_git()}
+        context={
+            "aba_ativa": "classificacoes",
+            "info_git": obter_info_git(),
+            "usuario": usuario
+        }
     )
 
 
 @app.get("/contas", response_class=HTMLResponse)
 async def pagina_contas(request: Request):
     """Página de Registrar Contas (Contas a Pagar e a Receber)."""
+    usuario = obter_usuario_sessao(request)
+    if not usuario:
+        return RedirectResponse(url="/login", status_code=303)
+
     return templates.TemplateResponse(
         request=request,
         name="contas.html",
-        context={"aba_ativa": "contas", "info_git": obter_info_git()}
+        context={
+            "aba_ativa": "contas",
+            "info_git": obter_info_git(),
+            "usuario": usuario
+        }
     )
 
 
@@ -194,6 +294,15 @@ async def pagina_contas(request: Request):
 async def versao_git():
     """Endpoint da API que retorna o código da última atualização no GitHub."""
     return obter_info_git()
+
+
+@app.get("/api/usuario-atual", response_class=JSONResponse)
+async def api_usuario_atual(request: Request):
+    """Retorna os dados do usuário autenticado na sessão."""
+    usuario = obter_usuario_sessao(request)
+    if not usuario:
+        return {"autenticado": False, "usuario": None}
+    return {"autenticado": True, "usuario": usuario}
 
 
 # =============================================================

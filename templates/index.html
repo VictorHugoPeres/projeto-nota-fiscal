@@ -17,9 +17,16 @@
         .json-string { color: #34d399; }
         .json-number { color: #fbbf24; }
         .json-boolean { color: #f472b6; }
+        #toast, .toast {
+            position: fixed !important;
+            bottom: 24px !important;
+            right: 24px !important;
+            z-index: 99999 !important;
+            max-width: 420px !important;
+        }
     </style>
 </head>
-<body class="bg-slate-100 text-slate-800 antialiased min-h-screen flex">
+<body class="bg-slate-100 text-slate-800 antialiased min-h-screen flex overflow-x-hidden">
 
     <!-- Sidebar Lateral Padrão Professor (Página 5) -->
     {% include "sidebar.html" %}

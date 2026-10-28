@@ -77,8 +77,10 @@ class CrudManager {
             modal.addEventListener('click', (e) => {
                 if (e.target === modal) this.fecharModal();
             });
-            const btnCancelar = modal.querySelector('.btn-cancelar');
-            if (btnCancelar) btnCancelar.addEventListener('click', () => this.fecharModal());
+            const btnsCancelar = modal.querySelectorAll('.btn-cancelar');
+            btnsCancelar.forEach(btn => {
+                btn.addEventListener('click', () => this.fecharModal());
+            });
         }
 
         // Submissão do Formulário
@@ -128,7 +130,7 @@ class CrudManager {
         if (!this.itens || this.itens.length === 0) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="10" style="text-align: center; padding: 2rem; color: #94a3b8;">
+                    <td colspan="10" class="py-8 text-center text-slate-400">
                         Nenhum registro encontrado.
                     </td>
                 </tr>
@@ -147,9 +149,11 @@ class CrudManager {
             if (idInput) idInput.value = '';
         }
         const modal = document.getElementById(this.modalId);
-        const title = modal.querySelector('.modal-title');
-        if (title) title.innerText = 'Novo Registro';
-        modal.style.display = 'flex';
+        if (modal) {
+            const title = modal.querySelector('.modal-title');
+            if (title) title.innerText = 'Novo Registro';
+            modal.style.display = 'flex';
+        }
     }
 
     abrirModalEditar(id) {
@@ -162,9 +166,11 @@ class CrudManager {
             this.fillFormCallback(form, item);
         }
         const modal = document.getElementById(this.modalId);
-        const title = modal.querySelector('.modal-title');
-        if (title) title.innerText = 'Editar Registro #' + id;
-        modal.style.display = 'flex';
+        if (modal) {
+            const title = modal.querySelector('.modal-title');
+            if (title) title.innerText = 'Editar Registro #' + id;
+            modal.style.display = 'flex';
+        }
     }
 
     fecharModal() {
@@ -192,55 +198,102 @@ class CrudManager {
             });
 
             if (!res.ok) {
-                const errData = await res.json();
-                throw new Error(errData.detail || 'Falha ao salvar');
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.detail || 'Falha ao salvar registro');
             }
 
             this.fecharModal();
             this.mostrarToast(isEdicao ? 'Registro atualizado com sucesso!' : 'Registro criado com sucesso!');
             this.carregarTodos();
         } catch (err) {
-            this.mostrarToast('Erro ao salvar: ' + err.message, true);
+            this.mostrarToast(err.message, true);
         }
     }
 
     async excluirLogico(id) {
+        // Verificação preventiva de permissão para cliente
+        if (window.USUARIO_ATUAL && window.USUARIO_ATUAL.role === 'cliente' && this.endpoint.includes('/movimentos')) {
+            this.mostrarToast('Acesso negado: Perfil de Cliente não tem permissão para inativar contas.', true);
+            return;
+        }
+
         if (!confirm('Deseja realmente inativar este registro?')) return;
 
         try {
             const res = await fetch(`${this.endpoint}/${id}`, { method: 'DELETE' });
-            if (!res.ok) throw new Error('Falha ao inativar registro');
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.detail || 'Falha ao inativar registro');
+            }
 
             this.mostrarToast('Registro inativado com sucesso!');
             this.carregarTodos();
         } catch (err) {
-            this.mostrarToast('Erro ao inativar: ' + err.message, true);
+            this.mostrarToast(err.message, true);
         }
     }
 
     async reativar(id) {
+        if (window.USUARIO_ATUAL && window.USUARIO_ATUAL.role === 'cliente' && this.endpoint.includes('/movimentos')) {
+            this.mostrarToast('Acesso negado: Perfil de Cliente não tem permissão para reativar contas.', true);
+            return;
+        }
+
         try {
             const res = await fetch(`${this.endpoint}/${id}/reativar`, { method: 'PATCH' });
-            if (!res.ok) throw new Error('Falha ao reativar registro');
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.detail || 'Falha ao reativar registro');
+            }
 
             this.mostrarToast('Registro reativado com sucesso!');
             this.carregarTodos();
         } catch (err) {
-            this.mostrarToast('Erro ao reativar: ' + err.message, true);
+            this.mostrarToast(err.message, true);
         }
     }
 
+    /**
+     * Exibe notificação flutuante com posicionamento FIXO garantido,
+     * impedindo qualquer quebra de layout ou sangramento de cores na página.
+     */
     mostrarToast(mensagem, isErro = false) {
         let toast = document.getElementById('toast');
         if (!toast) {
             toast = document.createElement('div');
             toast.id = 'toast';
-            toast.className = 'toast';
             document.body.appendChild(toast);
         }
+
+        // Estilização inline explícita para NUNCA interferir no flex/grid do body
+        toast.style.position = 'fixed';
+        toast.style.bottom = '24px';
+        toast.style.right = '24px';
+        toast.style.zIndex = '99999';
+        toast.style.maxWidth = '420px';
+        toast.style.padding = '12px 20px';
+        toast.style.borderRadius = '10px';
+        toast.style.color = '#ffffff';
+        toast.style.fontWeight = '600';
+        toast.style.fontSize = '14px';
+        toast.style.boxShadow = '0 10px 25px -5px rgba(0, 0, 0, 0.35)';
+        toast.style.backgroundColor = isErro ? '#dc2626' : '#16a34a';
+        toast.style.display = 'block';
+        toast.style.opacity = '1';
+        toast.style.transform = 'translateY(0)';
+        toast.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+        toast.style.pointerEvents = 'auto';
         toast.innerText = mensagem;
-        toast.style.background = isErro ? '#dc2626' : '#16a34a';
-        toast.classList.add('show');
-        setTimeout(() => toast.classList.remove('show'), 3500);
+
+        clearTimeout(this._toastTimeout);
+        this._toastTimeout = setTimeout(() => {
+            toast.style.opacity = '0';
+            toast.style.transform = 'translateY(10px)';
+            setTimeout(() => {
+                if (toast.style.opacity === '0') {
+                    toast.style.display = 'none';
+                }
+            }, 300);
+        }, 3800);
     }
 }

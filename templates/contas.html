@@ -12,9 +12,16 @@
     <style>
         body { font-family: 'Plus Jakarta Sans', sans-serif; }
         .font-mono { font-family: 'JetBrains Mono', monospace; }
+        #toast, .toast {
+            position: fixed !important;
+            bottom: 24px !important;
+            right: 24px !important;
+            z-index: 99999 !important;
+            max-width: 420px !important;
+        }
     </style>
 </head>
-<body class="bg-slate-100 text-slate-800 antialiased min-h-screen flex">
+<body class="bg-slate-100 text-slate-800 antialiased min-h-screen flex overflow-x-hidden">
 
     <!-- Sidebar Lateral Padrão Professor (Página 5) -->
     {% include "sidebar.html" %}
@@ -25,24 +32,32 @@
         <header class="bg-white border-b border-slate-200 px-8 py-4 flex items-center justify-between">
             <div>
                 <h1 class="text-2xl font-bold text-slate-900 tracking-tight">Registrar Contas</h1>
-                <p class="text-sm text-slate-500">Consulta e Gestão de Contas a Pagar, Contas a Receber e Parcelas (Etapa 2 - ESW424)</p>
+                <p class="text-sm text-slate-500">Consulta de Movimentos Fiscais, Contas a Pagar e Parcelas (Etapa 2 - ESW424)</p>
             </div>
-            <a href="/" class="px-4 py-2 rounded-lg font-bold text-xs bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition flex items-center gap-1.5">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-                + Lançar via Nota Fiscal (IA)
-            </a>
+            
+            {% if usuario and usuario.role == 'cliente' %}
+            <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs font-semibold">
+                <svg class="w-4 h-4 text-amber-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
+                <span>Perfil Cliente: Visualização e Consulta (Inativação Desabilitada)</span>
+            </div>
+            {% else %}
+            <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-50 border border-blue-200 text-blue-800 text-xs font-semibold">
+                <svg class="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                <span>Perfil Admin: Permissão Completa (Inativação e Reativação Habilitadas)</span>
+            </div>
+            {% endif %}
         </header>
 
         <!-- Main Workspace -->
-        <main class="p-8 max-w-6xl mx-auto w-full space-y-6">
+        <main class="p-8 max-w-7xl mx-auto w-full space-y-6">
 
-            <!-- Card: Buscar Contas (Padrão Exato do Professor) -->
+            <!-- Card: Buscar Contas / Movimentos -->
             <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                <h2 class="text-sm font-bold uppercase tracking-wider text-slate-600 mb-3">Buscar Contas</h2>
+                <h2 class="text-sm font-bold uppercase tracking-wider text-slate-600 mb-3">Buscar Contas e Movimentos</h2>
                 
                 <div class="flex flex-col sm:flex-row gap-3">
                     <div class="relative flex-1">
-                        <input type="text" id="inputBusca" class="w-full pl-4 pr-10 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" placeholder="Buscar por fornecedor, número do documento/NF, descrição dos produtos...">
+                        <input type="text" id="inputBusca" class="w-full pl-4 pr-10 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm" placeholder="Buscar por número da nota, descrição ou razão social...">
                     </div>
 
                     <button type="button" id="btnBuscar" class="px-5 py-2.5 rounded-lg font-bold text-sm bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition flex items-center justify-center gap-2">
@@ -57,7 +72,7 @@
                 </div>
 
                 <div class="mt-3 flex items-center justify-between text-xs text-slate-500">
-                    <span>* A tabela inicia vazia. Realize uma busca ou clique em <strong>Todos</strong>.</span>
+                    <span>* A tabela inicia vazia. Realize uma busca ou clique em <strong>Todos</strong> para listar.</span>
                     <label class="flex items-center gap-2 cursor-pointer font-medium hover:text-slate-700">
                         <input type="checkbox" id="checkInativos" class="rounded text-blue-600 focus:ring-blue-500">
                         Exibir registros inativos
@@ -65,10 +80,13 @@
                 </div>
             </section>
 
-            <!-- Card: Tabela de Movimentos -->
+            <!-- Card: Tabela de Contas e Movimentos -->
             <section class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 <div class="border-b border-slate-200 px-6 py-4 flex items-center justify-between">
-                    <h3 class="text-base font-bold text-slate-900">Lista de Movimentos Financeiros</h3>
+                    <div>
+                        <h3 class="text-base font-bold text-slate-900">Movimentações de Contas</h3>
+                        <p class="text-xs text-slate-500">Movimentos gerados pelo Agent2 a partir da extração de notas fiscais ou lançamentos manuais</p>
+                    </div>
                 </div>
 
                 <div class="overflow-x-auto">
@@ -102,13 +120,13 @@
     </div>
 
     <!-- Modal Detalhes do Movimento e Parcelas -->
-    <div id="modalDetalhesMovimento" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div id="modalDetalhesMovimento" style="display: none;" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 items-center justify-center p-4">
         <div class="bg-white rounded-xl shadow-2xl border border-slate-200 max-w-xl w-full overflow-hidden">
             <div class="bg-slate-900 text-white px-6 py-4 flex items-center justify-between">
                 <h3 id="modalDetalhesTitulo" class="text-base font-bold">Detalhes do Movimento</h3>
-                <button type="button" onclick="fecharModalDetalhes()" class="text-slate-400 hover:text-white">&times;</button>
+                <button type="button" onclick="fecharModalDetalhes()" class="text-slate-400 hover:text-white text-xl leading-none">&times;</button>
             </div>
-            <div id="modalDetalhesCorpo" class="p-6 space-y-4 text-sm">
+            <div id="modalDetalhesCorpo" class="p-6 space-y-4 text-sm max-h-[70vh] overflow-y-auto">
                 <!-- Preenchido via JS -->
             </div>
             <div class="p-4 bg-slate-50 border-t border-slate-100 flex justify-end">
@@ -119,9 +137,14 @@
         </div>
     </div>
 
+    <!-- Elemento fixo de Notificação / Toast -->
+    <div id="toast" style="display: none;" class="fixed bottom-6 right-6 z-[99999] px-5 py-3 rounded-xl shadow-2xl text-white font-semibold text-sm"></div>
+
     <script src="/static/js/crud.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
+            const isCliente = window.USUARIO_ATUAL && window.USUARIO_ATUAL.role === 'cliente';
+
             window.crudMovimentos = new CrudManager({
                 endpoint: '/api/movimentos',
                 tableBodyId: 'tabelaMovimentosCorpo',
@@ -150,9 +173,21 @@
                     const fatNome = m.faturado?.razao_social || '-';
                     const qtdParc = m.parcelas?.length || 1;
 
-                    const acoesBtn = isAtivo
-                        ? `<button onclick="crudMovimentos.excluirLogico(${m.id})" class="text-xs font-bold text-red-600 hover:text-red-800">Inativar</button>`
-                        : `<button onclick="crudMovimentos.reativar(${m.id})" class="text-xs font-bold text-emerald-600 hover:text-emerald-800">Reativar</button>`;
+                    // Controle de Permissão Estrito: Cliente NÃO tem permissão de inativar contas
+                    let acoesBtn = '';
+                    if (isAtivo) {
+                        if (isCliente) {
+                            acoesBtn = `<span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed" title="Perfil Cliente não tem permissão para inativar contas">Inativação Bloqueada</span>`;
+                        } else {
+                            acoesBtn = `<button onclick="crudMovimentos.excluirLogico(${m.id})" class="text-xs font-bold text-red-600 hover:text-red-800">Inativar</button>`;
+                        }
+                    } else {
+                        if (isCliente) {
+                            acoesBtn = `<span class="text-xs font-medium text-slate-400 italic">Inativo</span>`;
+                        } else {
+                            acoesBtn = `<button onclick="crudMovimentos.reativar(${m.id})" class="text-xs font-bold text-emerald-600 hover:text-emerald-800">Reativar</button>`;
+                        }
+                    }
 
                     return `
                         <tr class="hover:bg-slate-50 transition border-b border-slate-100">
@@ -173,7 +208,8 @@
         });
 
         function fecharModalDetalhes() {
-            document.getElementById('modalDetalhesMovimento').style.display = 'none';
+            const modal = document.getElementById('modalDetalhesMovimento');
+            if (modal) modal.style.display = 'none';
         }
     </script>
 </body>

@@ -14,10 +14,11 @@ g. No CREATE campo STATUS oculto == ATIVO
 h. No UPDATE campo STATUS oculto
 i. No DELETE altera campo STATUS == INATIVO
 j. Possibilidade de REATIVAR registros inativos
+k. Controle de Acesso: Usuários com perfil 'Cliente' NÃO podem inativar contas.
 """
 
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
@@ -261,8 +262,8 @@ def listar_movimentos(
         termo = f"%{busca.strip()}%"
         query = query.join(MovimentoConta.pessoa, isouter=True).filter(
             or_(
-                MovimentoConta.descricao.ilike(termo),
-                MovimentoConta.numero_nota.ilike(termo),
+                MovimentoConta.descricao_produtos.ilike(termo),
+                MovimentoConta.numero_documento.ilike(termo),
                 Pessoa.razao_social.ilike(termo)
             )
         )
@@ -274,11 +275,11 @@ def listar_movimentos(
 def criar_movimento(dados: MovimentoSchema, db: Session = Depends(get_db)):
     movimento = MovimentoConta(
         tipo=dados.tipo.strip().upper(),
-        descricao=dados.descricao.strip(),
-        numero_nota=dados.numero_nota.strip() if dados.numero_nota else "",
+        descricao_produtos=dados.descricao.strip() if dados.descricao else "",
+        numero_documento=dados.numero_nota.strip() if dados.numero_nota else "",
         valor_total=dados.valor_total,
         data_emissao=dados.data_emissao.strip() if dados.data_emissao else "",
-        pessoa_id=dados.pessoa_id,
+        fornecedor_id=dados.pessoa_id,
         faturado_id=dados.faturado_id,
         status="ATIVO"
     )
@@ -304,7 +305,6 @@ def criar_movimento(dados: MovimentoSchema, db: Session = Depends(get_db)):
             )
             db.add(parcela)
     else:
-        # 1 Parcela padrão
         identificacao = f"MOV{movimento.id}-PARC1"
         parcela = ParcelaConta(
             movimento_id=movimento.id,
@@ -322,7 +322,15 @@ def criar_movimento(dados: MovimentoSchema, db: Session = Depends(get_db)):
 
 
 @router.delete("/movimentos/{movimento_id}")
-def excluir_movimento(movimento_id: int, db: Session = Depends(get_db)):
+def excluir_movimento(movimento_id: int, request: Request, db: Session = Depends(get_db)):
+    """Inativação lógica de Movimento de Conta com verificação de perfil de acesso."""
+    usuario = request.session.get("usuario")
+    if usuario and usuario.get("role") == "cliente":
+        raise HTTPException(
+            status_code=403,
+            detail="Acesso Negado: Usuários com perfil 'Cliente' não possuem permissão para inativar contas. Apenas o Administrador pode executar esta ação."
+        )
+
     movimento = db.query(MovimentoConta).get(movimento_id)
     if not movimento:
         raise HTTPException(status_code=404, detail="Movimento não encontrado")
@@ -333,7 +341,15 @@ def excluir_movimento(movimento_id: int, db: Session = Depends(get_db)):
 
 
 @router.patch("/movimentos/{movimento_id}/reativar")
-def reativar_movimento(movimento_id: int, db: Session = Depends(get_db)):
+def reativar_movimento(movimento_id: int, request: Request, db: Session = Depends(get_db)):
+    """Reativação de Movimento de Conta com verificação de perfil de acesso."""
+    usuario = request.session.get("usuario")
+    if usuario and usuario.get("role") == "cliente":
+        raise HTTPException(
+            status_code=403,
+            detail="Acesso Negado: Usuários com perfil 'Cliente' não possuem permissão para reativar contas. Apenas o Administrador pode executar esta ação."
+        )
+
     movimento = db.query(MovimentoConta).get(movimento_id)
     if not movimento:
         raise HTTPException(status_code=404, detail="Movimento não encontrado")

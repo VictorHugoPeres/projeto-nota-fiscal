@@ -122,6 +122,14 @@ class MovimentoConta(Base):
 
     # Aliases de compatibilidade
     @property
+    def descricao(self):
+        return self.descricao_produtos
+
+    @descricao.setter
+    def descricao(self, val):
+        self.descricao_produtos = val
+
+    @property
     def numero_nota(self):
         return self.numero_documento
 
