@@ -8,7 +8,7 @@ a. Trazer a tabela de registros vazia inicialmente
 b. Carregar dados através da Busca ou botão TODOS
 c. TODOS carrega status = ATIVO
 d. Indexação por coluna na tabela
-e. Busca por mais de um elemento
+e. Busca inteligente por múltiplos termos, insensível a acentos, pontuação e maiúsculas
 f. Duas ações na tabela: Editar / Excluir (Lógico)
 g. No CREATE campo STATUS oculto == ATIVO
 h. No UPDATE campo STATUS oculto
@@ -17,15 +17,27 @@ j. Possibilidade de REATIVAR registros inativos
 k. Controle de Acesso: Usuários com perfil 'Cliente' NÃO podem inativar contas.
 """
 
+import re
+import unicodedata
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
-from sqlalchemy import or_
-from sqlalchemy.orm import Session
+from sqlalchemy import cast, func, or_, String
+from sqlalchemy.orm import Session, aliased
 
 from database import Classificacao, MovimentoConta, ParcelaConta, Pessoa, get_db
 
 router = APIRouter(prefix="/api", tags=["cadastros"])
+
+
+def _normalizar(txt: str) -> str:
+    """Normaliza texto para comparação insensível a acentuação e caixa."""
+    if not txt:
+        return ""
+    return "".join(
+        c for c in unicodedata.normalize("NFD", str(txt).strip())
+        if unicodedata.category(c) != "Mn"
+    ).lower()
 
 
 # -------------------------------------------------------------
@@ -34,6 +46,7 @@ router = APIRouter(prefix="/api", tags=["cadastros"])
 class PessoaSchema(BaseModel):
     tipo: str  # 'CLIENTE-FORNECEDOR', 'FORNECEDOR', 'CLIENTE', 'FATURADO'
     razao_social: str
+    nome_fantasia: Optional[str] = ""
     cpf_cnpj: Optional[str] = ""
     status: Optional[str] = "ATIVO"
 
@@ -86,15 +99,23 @@ def listar_pessoas(
     if not incluir_inativos:
         query = query.filter(Pessoa.status == "ATIVO")
 
-    if busca:
-        termo = f"%{busca.strip()}%"
-        query = query.filter(
-            or_(
-                Pessoa.razao_social.ilike(termo),
-                Pessoa.cpf_cnpj.ilike(termo),
-                Pessoa.tipo.ilike(termo)
-            )
-        )
+    if busca and busca.strip():
+        termo_limpo = busca.strip()
+        termo_norm = f"%{_normalizar(termo_limpo)}%"
+        digitos = re.sub(r"\D", "", termo_limpo)
+
+        condicoes = [
+            func.sem_acento(Pessoa.razao_social).like(termo_norm),
+            func.sem_acento(Pessoa.nome_fantasia).like(termo_norm),
+            func.sem_acento(Pessoa.tipo).like(termo_norm),
+            func.sem_acento(Pessoa.documento).like(termo_norm),
+            cast(Pessoa.id, String).like(f"%{termo_limpo.replace('#', '')}%")
+        ]
+
+        if digitos:
+            condicoes.append(func.limpar_doc(Pessoa.documento).like(f"%{digitos}%"))
+
+        query = query.filter(or_(*condicoes))
 
     return [p.to_dict() for p in query.order_by(Pessoa.id.desc()).all()]
 
@@ -105,7 +126,8 @@ def criar_pessoa(dados: PessoaSchema, db: Session = Depends(get_db)):
     pessoa = Pessoa(
         tipo=dados.tipo.strip().upper(),
         razao_social=dados.razao_social.strip().upper(),
-        cpf_cnpj=dados.cpf_cnpj.strip() if dados.cpf_cnpj else "",
+        nome_fantasia=dados.nome_fantasia.strip().upper() if dados.nome_fantasia else "",
+        documento=dados.cpf_cnpj.strip() if dados.cpf_cnpj else "",
         status="ATIVO"
     )
     db.add(pessoa)
@@ -123,8 +145,8 @@ def atualizar_pessoa(pessoa_id: int, dados: PessoaSchema, db: Session = Depends(
 
     pessoa.tipo = dados.tipo.strip().upper()
     pessoa.razao_social = dados.razao_social.strip().upper()
-    pessoa.cpf_cnpj = dados.cpf_cnpj.strip() if dados.cpf_cnpj else ""
-    # O status não é alterado no update comum
+    pessoa.nome_fantasia = dados.nome_fantasia.strip().upper() if dados.nome_fantasia else ""
+    pessoa.documento = dados.cpf_cnpj.strip() if dados.cpf_cnpj else ""
     db.commit()
     db.refresh(pessoa)
     return {"sucesso": True, "pessoa": pessoa.to_dict()}
@@ -176,12 +198,14 @@ def listar_classificacoes(
     if not incluir_inativos:
         query = query.filter(Classificacao.status == "ATIVO")
 
-    if busca:
-        termo = f"%{busca.strip()}%"
+    if busca and busca.strip():
+        termo_limpo = busca.strip()
+        termo_norm = f"%{_normalizar(termo_limpo)}%"
         query = query.filter(
             or_(
-                Classificacao.descricao.ilike(termo),
-                Classificacao.tipo.ilike(termo)
+                func.sem_acento(Classificacao.descricao).like(termo_norm),
+                func.sem_acento(Classificacao.tipo).like(termo_norm),
+                cast(Classificacao.id, String).like(f"%{termo_limpo.replace('#', '')}%")
             )
         )
 
@@ -250,7 +274,14 @@ def listar_movimentos(
     if not busca and not carregar_todos:
         return []
 
-    query = db.query(MovimentoConta)
+    Forn = aliased(Pessoa)
+    Fat = aliased(Pessoa)
+
+    query = (
+        db.query(MovimentoConta)
+        .outerjoin(Forn, MovimentoConta.fornecedor_id == Forn.id)
+        .outerjoin(Fat, MovimentoConta.faturado_id == Fat.id)
+    )
 
     if tipo and tipo != "TODOS":
         query = query.filter(MovimentoConta.tipo == tipo)
@@ -258,15 +289,29 @@ def listar_movimentos(
     if not incluir_inativos:
         query = query.filter(MovimentoConta.status == "ATIVO")
 
-    if busca:
-        termo = f"%{busca.strip()}%"
-        query = query.join(MovimentoConta.pessoa, isouter=True).filter(
-            or_(
-                MovimentoConta.descricao_produtos.ilike(termo),
-                MovimentoConta.numero_documento.ilike(termo),
-                Pessoa.razao_social.ilike(termo)
-            )
-        )
+    if busca and busca.strip():
+        termo_limpo = busca.strip()
+        termo_norm = f"%{_normalizar(termo_limpo)}%"
+        digitos = re.sub(r"\D", "", termo_limpo)
+
+        condicoes = [
+            func.sem_acento(MovimentoConta.descricao_produtos).like(termo_norm),
+            func.sem_acento(MovimentoConta.numero_documento).like(termo_norm),
+            func.sem_acento(MovimentoConta.tipo).like(termo_norm),
+            cast(MovimentoConta.id, String).like(f"%{termo_limpo.replace('#', '')}%"),
+            func.sem_acento(Forn.razao_social).like(termo_norm),
+            func.sem_acento(Forn.nome_fantasia).like(termo_norm),
+            func.sem_acento(Forn.documento).like(termo_norm),
+            func.sem_acento(Fat.razao_social).like(termo_norm),
+            func.sem_acento(Fat.documento).like(termo_norm)
+        ]
+
+        if digitos:
+            condicoes.append(func.limpar_doc(Forn.documento).like(f"%{digitos}%"))
+            condicoes.append(func.limpar_doc(Fat.documento).like(f"%{digitos}%"))
+            condicoes.append(func.limpar_doc(MovimentoConta.numero_documento).like(f"%{digitos}%"))
+
+        query = query.filter(or_(*condicoes))
 
     return [m.to_dict() for m in query.order_by(MovimentoConta.id.desc()).all()]
 

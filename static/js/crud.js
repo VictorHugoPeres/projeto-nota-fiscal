@@ -5,7 +5,7 @@
  * b. Carregar dados através da Busca ou TODOS
  * c. TODOS carrega status = ATIVO
  * d. Indexação por coluna na tabela
- * e. Busca por mais de um elemento
+ * e. Busca inteligente por mais de um elemento
  * f. Duas ações na tabela: Editar / Excluir (Lógico)
  * g. No CREATE campo STATUS oculto == ATIVO
  * h. No UPDATE campo STATUS oculto
@@ -63,7 +63,7 @@ class CrudManager {
         if (filterInativos) {
             filterInativos.addEventListener('change', () => {
                 const buscaVal = document.getElementById(this.searchInputId)?.value || '';
-                if (buscaVal) {
+                if (buscaVal.trim()) {
                     this.buscar();
                 } else {
                     this.carregarTodos();
@@ -97,8 +97,12 @@ class CrudManager {
         const incluirInativos = document.getElementById(this.filterInativosCheckboxId)?.checked || false;
         try {
             const res = await fetch(`${this.endpoint}?carregar_todos=true&incluir_inativos=${incluirInativos}`);
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.detail || 'Falha ao carregar registros');
+            }
             const data = await res.json();
-            this.itens = data;
+            this.itens = Array.isArray(data) ? data : [];
             this.renderizar();
         } catch (err) {
             this.mostrarToast('Erro ao carregar dados: ' + err.message, true);
@@ -106,8 +110,10 @@ class CrudManager {
     }
 
     async buscar() {
-        const termo = document.getElementById(this.searchInputId)?.value.trim() || '';
+        const inputElem = document.getElementById(this.searchInputId);
+        const termo = inputElem ? inputElem.value.trim() : '';
         const incluirInativos = document.getElementById(this.filterInativosCheckboxId)?.checked || false;
+
         if (!termo) {
             this.mostrarToast('Digite um termo para pesquisar ou clique em TODOS', true);
             return;
@@ -115,9 +121,17 @@ class CrudManager {
 
         try {
             const res = await fetch(`${this.endpoint}?busca=${encodeURIComponent(termo)}&incluir_inativos=${incluirInativos}`);
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.detail || 'Falha na pesquisa');
+            }
             const data = await res.json();
-            this.itens = data;
+            this.itens = Array.isArray(data) ? data : [];
             this.renderizar();
+
+            if (this.itens.length === 0) {
+                this.mostrarToast(`Nenhum registro encontrado para "${termo}".`, false);
+            }
         } catch (err) {
             this.mostrarToast('Erro na pesquisa: ' + err.message, true);
         }

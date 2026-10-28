@@ -2,11 +2,14 @@
 
 Atende ao requisito:
 - Banco de Dados: SQLite com SQLAlchemy (simples e sem dependências externas).
+- Suporte a busca inteligente e insensível a acentuação e pontuação.
 """
 
 import os
+import re
+import unicodedata
 from pathlib import Path
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -20,6 +23,31 @@ engine = create_engine(
     connect_args=connect_args,
     echo=False
 )
+
+
+def _remover_acentos(text):
+    """Normaliza texto removendo acentos e convertendo para minúsculas."""
+    if not text:
+        return ""
+    return "".join(c for c in unicodedata.normalize("NFD", str(text)) if unicodedata.category(c) != "Mn").lower()
+
+
+def _limpar_documento(text):
+    """Remove pontuação e formatação deixando apenas números."""
+    if not text:
+        return ""
+    return re.sub(r"\D", "", str(text))
+
+
+# Registra funções customizadas no SQLite para busca insensível a acentos e pontuação
+@event.listens_for(engine, "connect")
+def configurar_funcoes_sqlite(dbapi_connection, connection_record):
+    try:
+        dbapi_connection.create_function("sem_acento", 1, _remover_acentos)
+        dbapi_connection.create_function("limpar_doc", 1, _limpar_documento)
+    except Exception:
+        pass
+
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
@@ -64,4 +92,3 @@ def init_db():
             db.commit()
     finally:
         db.close()
-
